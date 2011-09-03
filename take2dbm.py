@@ -1,20 +1,19 @@
+"""Take2 Database scheme"""
+
 import geo.geomodel
 from google.appengine.ext import db
 from google.appengine.ext.db import polymodel
 
 class Contact(polymodel.PolyModel)
     """Base class for person and Company"""
-    # google login
-    user = db.UserProperty()
+    # person's first name or name of a company
+    name = db.StringProperty(required=True)
 
 class Company(Contact)
     """Represents a company"""
-    # name for a company
-    name = db.StringProperty(required=True)
 
 class Person(Contact):
     """A natural Person"""
-    firstname = db.StringProperty(required=True)
     nickname = db.StringProperty()
     lastname = db.StringProperty()
     birthday = db.DateProperty()
@@ -22,6 +21,8 @@ class Person(Contact):
     photo = db.BlobProperty()
     # where am I (right now)
     location = db.GeoPtProperty()
+    # google login
+    user = db.UserProperty()
 
 class Country(db.Model)
     """Countries of the World"""
