@@ -1,1 +1,30 @@
 A linked address database
+
+EPOI - Editor for Openstreetmap Points of Interest (nodes)
+
+# On how to fetch data from remote server
+# and how to serve images from the datastore!
+http://code.google.com/appengine/articles/python/serving_dynamic_images.html
+
+# Mastering the datastore series of articles
+http://code.google.com/appengine/articles/datastore/overview.html
+
+# OpenLayers tips
+http://www.peterrobins.co.uk
+
+# Ajax upload demo
+http://valums.com/files/2009/ajax-upload/demo-jquery.htm
+
+# jQuery tutorial
+http://docs.jquery.com/Tutorials:Getting_Started_with_jQuery
+
+# Über Geo-queries
+# Creating a store locator application
+http://code.google.com/apis/maps/articles/phpsqlsearch_v3.html
+# pypi geomodel implementation with a GeoModel class
+http://pypi.python.org/pypi/geomodel
+
+# To clear the local datastore for an application, use the --clear_datastore option when you start the web server:
+dev_appserver.py --clear_datastore ~/epoi
+
+
