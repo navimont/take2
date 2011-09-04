@@ -1,0 +1,11 @@
+application: take2
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /export.*
+  script: take2export.py
+
+- url: /import
+  script: take2export.py
