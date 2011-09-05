@@ -13,93 +13,82 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate
 from take2dbm import Link, Email, Address, Mobile, Web, Note, Other
 
+def encodeTake2(q_obj, attic=False):
+    """Encodes the results of a query for Take2
+    descendant objects.
+    """
+    results = []
+    for obj in q_obj:
+        res = {}
+        res['key'] = str(obj.key())
+        res['type'] = obj.class_name().lower()
+        res['timestamp'] = obj.timestamp.isoformat()
+        res['take2'] = obj.take2
+        if obj.class_name() == "Email":
+            res['email'] = obj.email
+        elif obj.class_name() == "Web":
+            res['web'] = obj.web
+        elif obj.class_name() == "Link":
+            res['link'] = obj.link
+            res['link_to'] = str(obj.link_to.key())
+        elif obj.class_name() == "Address":
+            res['location_lat'] = obj.location.lat
+            res['location_lon'] = obj.location.lon
+            res['adr'] = obj.adr
+            res['landline_phone'] = obj.landline_phone
+            res['country'] = obj.country
+        elif obj.class_name() == "Mobile":
+            res['mobile'] = obj.mobile
+        elif obj.class_name() == "Note":
+            res['note'] = obj.note
+        elif obj.class_name() == "Other":
+            res['what'] = obj.what
+            res['text'] = obj.text
+        else:
+            assert True, "Invalid class name: %s" % obj.class_name()
+        results.append(res)
+    return results
+
+
+def encodeContact(contact, attic=False):
+    """Encodes Contact data for export and returns a
+    python data structure of dictionaries and lists.
+    If attic=True, data will include the
+    complete history and also archived data.
+    """
+    logging.debug("encode name: %s" % (contact.name))
+    res = {}
+    res['key'] = str(contact.key())
+    res['name'] = contact.name
+    res['type'] = contact.class_name().lower()
+    if contact.class_name() == "Person":
+        # google account
+        res['user'] = contact.user
+        # personal nickname
+        res['nickname'] = contact.nickname
+        res['lastname'] = contact.lastname
+        res['birthday'] = "%04d-%02d-%02d" % (contact.birthday.year,contact.birthday.month,contact.birthday.day)
+    elif contact.class_name() == "Company":
+        # nothing to do
+        pass
+    else:
+        assert True, "Invalid class name: %s" % contact.class_name()
+
+    # now encode the contact's address, email etc.
+    for take2 in [Email,Note,Web,Address,Mobile,Link,Other]:
+        q_obj = take2.all()
+        q_obj.filter("contact =", contact.key())
+        q_obj.order('-timestamp')
+        # takes care of the different take2 object structures
+        objs = encodeTake2(q_obj, attic)
+        if objs:
+            res[take2.class_name().lower()] = objs
+
+    return res
+
 
 class Take2Export(webapp.RequestHandler):
     """Export the relation between icons and osm tags (backup)"""
-
-    def encodeTake2(self, obj_class, contact, archived=False):
-        """Encodes obj_class into a python data structure.
-        obj_class must be a descendant of Take2 class.
-        """
-        q_obj = obj_class.all()
-        q_obj.filter("contact =", contact.key())
-        q_obj.order('-timestamp')
-        results = []
-        for obj in q_obj:
-            res = {}
-            # archive only the latest unless archived=True
-            if len(results) == 0 or archived:
-                res['key'] = str(obj.key())
-                res['type'] = obj.class_name().lower()
-                res['timestamp'] = "%04d-%02d-%02d %02d:%02d:%02d.%06d" % (obj.timestamp.year,
-                                                                          obj.timestamp.month,
-                                                                          obj.timestamp.day,
-                                                                          obj.timestamp.hour,
-                                                                          obj.timestamp.minute,
-                                                                          obj.timestamp.second,
-                                                                          obj.timestamp.microsecond)
-                res['take2'] = obj.take2
-                if obj.class_name() == "Email":
-                    res['email'] = obj.email
-                elif obj.class_name() == "Web":
-                    res['web'] = obj.web
-                elif obj.class_name() == "Link":
-                    res['link'] = obj.link
-                    res['link_to'] = str(obj.link_to.key())
-                elif obj.class_name() == "Address":
-                    res['location_lat'] = obj.location.lat
-                    res['location_lon'] = obj.location.lon
-                    res['adr'] = obj.adr
-                    res['landline_phone'] = obj.landline_phone
-                    res['country'] = obj.country
-                elif obj.class_name() == "Mobile":
-                    res['mobile'] = obj.mobile
-                elif obj.class_name() == "Note":
-                    res['note'] = obj.note
-                elif obj.class_name() == "Other":
-                    res['what'] = obj.what
-                    res['text'] = obj.text
-                else:
-                    assert True, "Invalid class name: %s" % obj.class_name()
-
-            results.append(res)
-        return results
-
-
-    def encodeContact(self, contact, archive=False):
-        """Encodes Contact data for export and returns a
-        python data structure of dictionaries and lists.
-        If archived=True, data will include the
-        complete history and also archived data.
-        """
-        logging.debug("export name: %s" % (contact.name))
-        res = {}
-        res['key'] = str(contact.key())
-        res['name'] = contact.name
-        res['type'] = contact.class_name().lower()
-        if contact.class_name() == "Person":
-            # google account
-            res['user'] = contact.user
-            # personal nickname
-            res['nickname'] = contact.nickname
-            res['lastname'] = contact.lastname
-            res['birthday'] = "%04d-%02d-%02d" % (contact.birthday.year,contact.birthday.month,contact.birthday.day)
-        elif contact.class_name() == "Company":
-            # nothing to do
-            pass
-        else:
-            assert True, "Invalid class name: %s" % contact.class_name()
-
-        # now encode the contact's address, email etc.
-        for obj in [Email,Note,Web,Address,Mobile,Link,Other]:
-            objs = self.encodeTake2(obj, contact, archive)
-            logging.debug("%s" % ", ".join(dir(obj)))
-            if objs:
-                res[obj.class_name().lower()] = objs
-
-        return res
-
-
 
     def get(self):
         user = users.get_current_user()
@@ -109,12 +98,12 @@ class Take2Export(webapp.RequestHandler):
             self.redirect(users.create_login_url(self.request.uri))
             return
 
-        if self.request.get('archive',"") == 'True':
-            archive = True
+        if self.request.get('attic',"") == 'True':
+            attic = True
         else:
-            archive = False
+            attic = False
 
-        logging.info("export format:  archive: %d user: %s admin: %d" % (archive,user.nickname(),users.is_current_user_admin()))
+        logging.info("export format:  attic: %d user: %s admin: %d" % (attic,user.nickname(),users.is_current_user_admin()))
         self.response.headers['Content-Type'] = 'text/plain'
 
         # Administrator exports everything
@@ -122,7 +111,7 @@ class Take2Export(webapp.RequestHandler):
         if users.is_current_user_admin():
             q_con = Contact.all()
             for con in q_con:
-                contacts.append(self.encodeContact(con, archive))
+                contacts.append(encodeContact(con, attic))
         else:
             q_us = Contact.all()
             q_us.filter("user =", user)
@@ -131,10 +120,10 @@ class Take2Export(webapp.RequestHandler):
                 logging.Critical("Found wrong # of user: %s [%s]" % (user.nickname(), ", ".join([u.name for u in us])))
                 self.error(500)
                 return
-            contacts.append(self.encodeContact(us, False))
+            contacts.append(encodeContact(us, False))
 
         self.response.out.write(json.dumps(contacts,indent=2))
-        self.response.out.write(yaml.dump(contacts))
+        self.response.out.write(yaml.dump(contacts,))
 
 
 class Take2Import(webapp.RequestHandler):
@@ -191,7 +180,8 @@ def example():
         c.delete()
     eso = Company (name = 'ESO')
     eso.put()
-    stef = Person(name = u'Stphane',
+    # Stephane with accent
+    stef = Person(name = u'St\xe9phane',
                   nickname = 'Stef',
                   lastname = 'Wehner',
                   birthday = FuzzyDate(year=0,month=6,day=15))

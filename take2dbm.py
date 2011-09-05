@@ -8,10 +8,22 @@ class FuzzyDate(object):
     """A date which allows unknown day/month or year left out
     from: http://code.google.com/appengine/articles/extending_models.html
     """
-    def __init__(self, year=0, month=0, day=0):
-        self.year = year
-        self.month = month
-        self.day = day
+    def __init__(self, year=0, month=0, day=0, ddmmyyyy=None):
+        """Use constructor wither with tea, month day given
+        (or set to 0) or by assigning ddmmyyyy coded integer"""
+        if ddmmyyyy:
+            self.day = ddmmyyyy / 1000000
+            self.month = (ddmmyyyy / 10000) % 100
+            self.year = ddmmyyyy % 10000
+        else:
+            self.year = year
+            self.month = month
+            self.day = day
+
+    def to_ddmmyyy(self):
+        """return date as a ddmmyyyy coded integer
+        for use in FuzzyDateProperty class"""
+        return (self.day * 1000000) + (self.month * 10000) + self.year
 
     def has_day(self):
         return self.day > 0
@@ -35,18 +47,18 @@ class FuzzyDateProperty(db.Property):
     # Tell what the user type is.
     data_type = FuzzyDate
 
-    # For writing to datastore.
+    # For writing to datastore. Date is stored as
+    # integer mmddyyyy
     def get_value_for_datastore(self, model_instance):
         date = super(FuzzyDateProperty,self).get_value_for_datastore(model_instance)
-        return (date.month * 1000000) + (date.day * 10000) + date.year
+        # return (date.day * 1000000) + (date.month * 10000) + date.year
+        return date.to_ddmmyyy()
 
     # For reading from datastore.
     def make_value_from_datastore(self, value):
         if value is None:
             return None
-        return FuzzyDate(month=value / 1000000,
-                         day=(value / 10000) % 100,
-                         year=value % 10000)
+        return FuzzyDate(ddmmyyyy=value)
 
     def validate(self, value):
         if value is not None and not isinstance(value, FuzzyDate):
@@ -66,6 +78,8 @@ class Contact(polymodel.PolyModel):
     """Base class for person and Company"""
     # person's first name or name of a company
     name = db.StringProperty(required=True)
+    # archived
+    attic = db.BooleanProperty()
 
 class Company(Contact):
     """Represents a company"""
@@ -87,19 +101,25 @@ class Country(db.Model):
     name = db.StringProperty()
 
 class Take2(polymodel.PolyModel):
-    """Base class for a contac's properties.
-    contact refers to the person/company
+    """Base class for a contact's data.
+    A history of data is stored by never updating
+    a Take2 derived data class. Instead, when data is
+    updated, a new instance is created. The last
+    entity points to he contact. The one which was just
+    replaced, points to the new data entity.
     """
-    # Reference to a Person or a Company
-    contact = db.ReferenceProperty(Contact, required=True)
+    # Reference to a Person or a Company or to a
+    # newer version of this entity.
+    contact = db.ReferenceProperty(reference_class=None, required=True)
     # creation timestamp
     timestamp = db.DateTimeProperty(auto_now=True)
     # how to treat this connection
     take2 = db.StringProperty(required=True, default="Restricted",
                                       choices=["Open",
                                        "Restricted",
-                                       "Private",
-                                       "Archived"])
+                                       "Private"])
+    # archived
+    attic = db.BooleanProperty()
 
 class Link(Take2):
     """Links between Persons/Contacts

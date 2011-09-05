@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+    <meta name="description" content="Linked Address Book"/>
+    <!-- Opengraph.org tags -->
+    <meta property="og:title" content="Take2 - Linked Address Book" />
+    <meta property="og:type" content="non_profit" />
+    <meta property="og:url" content="http://www.navimont.com/" />
+    <meta property="og:site_name" content="" />
+    <meta property="og:description" content=""/>
+    <title>{% block pagetitle %}{% endblock %}</title>
+
+    <!-- now for the map -->
+  </head>
+  <body">
+      <a name="home" href='take2.html'>Take2</a>
+      {% if nickname %}
+          <div id=login><a href="logout">logout {{ nickname }}</a></div>
+      {% else %}
+          <div id=logout><a href="login">login</a></div>
+      {% endif %}
+      {% block content %} {% endblock %}
+  </body>
+</html>
+
