@@ -9,3 +9,9 @@ handlers:
 
 - url: /import
   script: take2export.py
+
+- url: /search.*
+  script: take2edit.py
+
+- url: /(edit|save|editcontact|savecontact)
+  script: take2edit.py

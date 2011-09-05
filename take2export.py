@@ -56,7 +56,7 @@ def encodeContact(contact, attic=False):
     If attic=True, data will include the
     complete history and also archived data.
     """
-    logging.debug("encode name: %s" % (contact.name))
+    logging.debug("encode contact name: %s" % (contact.name))
     res = {}
     res['key'] = str(contact.key())
     res['name'] = contact.name
@@ -195,6 +195,8 @@ def example():
     adr = Address(contact=stef,adr=['104 Adelphi','Brooklyn','NY','11205'],location=db.GeoPt(-70.1,30.0))
     adr.put()
     mobile = Mobile(contact=stef,mobile='616-204-7136')
+    mobile.put()
+    mobile = Mobile(contact=stef,mobile='616-920-2360')
     mobile.put()
 
 application = webapp.WSGIApplication([('/import.*', Take2Import),

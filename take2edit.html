@@ -5,11 +5,12 @@ Address-Information
 {% endblock %}
 
 {% block content %}
-<h2>{{action}}: {{name}}</h2>
+<h2>{{titlestr}}: {{name}}</h2>
 
-<form action="/save" method="POST">
-    <input name="contact_key" type="hidden" value="{{ contact.key }}">
-    <input name="prop_key" type="hidden" value="{{ prop.key }}">
+<form action="{{form_action}}" method="POST">
+    <input name="action" type="hidden" value="{{ action }}">
+    <input name="key" type="hidden" value="{{ key }}">
+    <input name="instance" type="hidden" value="{{ instance }}">
 
     {% for line in form %}
         {{ line }}

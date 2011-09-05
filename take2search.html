@@ -38,11 +38,13 @@ Search for address
       <h2>{{ result|length }} Results for "{{ query|escape }}":</h2>
     {% endif %}
 
+    <form name="editcontact" action="/editcontact" method="POST">
+                  <input type="hidden" name="action" value="">
+    </form>
+
     {% if result %}
       {% for contact in result %}
 	     <form name="edit" action="/edit" method="POST">
-          <!-- hidden input field is used to re-submit the contact key-->
-          <input type="hidden" name="contact_key" value="{{ contact.key }}">
           <!-- hidden input field is used together with javascript to submit -->
           <input type="hidden" name="action" value="">
 
@@ -55,11 +57,11 @@ Search for address
               </th>
               <th>
                   {% if contact.attic %}
-                      <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_deattic_{{contact.key}}')";">De-Attic</a>
+                      <a href="javascript:void(0)" onClick="submitForm('editcontact', 'deattic_contact_{{contact.key}}')";">De-Attic</a>
                   {% else %}
-                      <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_attic_{{contact.key}}')";">Attic</a>
+                      <a href="javascript:void(0)" onClick="submitForm('editcontact', 'attic_contact_{{contact.key}}')";">Attic</a>
                   {% endif %}
-                  <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_contact_{{contact.key}}')";">Edit</a>
+                  <a href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_contact_{{contact.key}}')";">Edit</a>
               <th>
             </tr>
             {% for mobile in contact.mobile %}
@@ -80,9 +82,9 @@ Search for address
                     <td>{{other.what}}: {{other.text}}</td>
                     <td>
                     {% if other.attic %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_deattic_{{other.key}}')";">De-Attic</a>
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'deattic_other_{{other.key}}')";">De-Attic</a>
                     {% else %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_attic_{{other.key}}')";">Attic</a>
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_other_{{other.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_other_{{other.key}}')";">Edit</a>
                     <td>
@@ -93,9 +95,9 @@ Search for address
                     <td>{{email.email}}</td>
                     <td>
                     {% if email.attic %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_deattic_{{email.key}}')";">De-Attic</a>
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'deattic_email_{{email.key}}')";">De-Attic</a>
                     {% else %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_attic_{{email.key}}')";">Attic</a>
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_email_{{email.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_email_{{email.key}}')";">Edit</a>
                     <td>
@@ -106,9 +108,9 @@ Search for address
                     <td>{{web.web}}</td>
                     <td>
                     {% if web.attic %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_deattic_{{web.key}}')";">De-Attic</a>
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'deattic_web_{{web.key}}')";">De-Attic</a>
                     {% else %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_attic_{{web.key}}')";">Attic</a>
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_web_{{web.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_web_{{web.key}}')";">Edit</a>
                     <td>
@@ -125,9 +127,9 @@ Search for address
                     </td>
                     <td>
                     {% if web.attic %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_deattic_{{adr.key}}')";">De-Attic</a>
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'deattic_address_{{adr.key}}')";">De-Attic</a>
                     {% else %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_attic_{{adr.key}}')";">Attic</a>
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_address_{{adr.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_address_{{adr.key}}')";">Edit</a>
                     <td>
@@ -136,8 +138,8 @@ Search for address
 
           </table>
 
-
-          <a href="javascript:void(0)" onClick="submitForm('edit', 'new_contact');">New Contact</a>
+          <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_person_');">New Person</a>
+          <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_contact_');">New Institution</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_email_{{contact.key}}')";">New Contact</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_mobile_{{contact.key}}')";">New Mobile Phone</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_email_{{contact.key}}')";">New Email</a>
@@ -148,7 +150,8 @@ Search for address
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_note_{{contact.key}}')";">New Note</a>
       {% endfor %}
     {% else %}
-          <a href="javascript:void(0)" onClick="submitForm('edit', 'new_contact');">New Contact</a>
+          <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_person_');">New Person</a>
+          <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_contact_');">New Institution</a>
        </form>
     {% endif %}
 {% endblock %}
