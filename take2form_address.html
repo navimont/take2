@@ -1,0 +1,29 @@
+{% extends "take2edit.html" %}
+
+{% block form %}
+    <table>
+        <tr>
+            <td id="formtag">Address</td>
+            <td><textarea name="adr" cols="20" rows="5">{{adr}}</textarea></td>
+            <td id="formhint"></td>
+        </tr>
+        <tr>
+            <td id="formtag">Country</td>
+            <td><input type="text" name="country" value="{{country}}" size="20"></td>
+            <td id="formhint">(e.g. United States)</td>
+        </tr>
+        <tr>
+            <td id="formtag">Phone</td>
+            <td><input type="text" name="landline_phone" value="{{landline_phone}}" size="20"></td>
+            <td id="formhint">(landline phone)</td>
+        </tr>
+        <tr>
+            <td id="formtag">Coordinates</td>
+            <td>
+                <input type="text" name="lat" value="{{lat}}" size="8">
+                <input type="text" name="lon" value="{{lon}}" size="9">
+            </td>
+            <td id="formhint">(leave empty for automatic lookup)</td>
+        </tr>
+    </table>
+{% endblock %}

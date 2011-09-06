@@ -1,0 +1,37 @@
+{% extends "take2edit.html" %}
+
+{% block form %}
+    <table>
+        <tr>
+            <td id="formtag">First name</td>
+            <td><input name="firstname" type="text" value="{{firstname}}"></td>
+            <td id="formhint"></td>
+        <tr>
+        </tr>
+            <td id="formtag">Nickname</td>
+            <td><input name="nickname" type="text" value="{{nickname}}"></td>
+            <td id="formhint"></td>
+        <tr>
+        </tr>
+            <td id="formtag">Last name</td>
+            <td><input name="lastname" type="text" value="{{lastname}}"></td>
+            <td id="formhint"></td>
+        <tr>
+        </tr>
+            <td id="formtag">This person is my</td>
+            <td>
+                <select name="linkselect">
+                    {% for link in linklist %}
+                    <option value="{{link}}">{{link}}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td id="formhint">(select your relation)</td>
+        <tr>
+        </tr>
+            <td id="formtag">Birthday</td>
+            <td><input name="birthday" type="text" value="{{birthday}}"></td>
+            <td id="formhint">(enter as dd/mm/yyyy Replace unknown numbers with 0)</td>
+        </tr>
+    </table>
+{% endblock %}

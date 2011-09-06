@@ -30,7 +30,7 @@ Search for address
     {% if birthdays %}
       <h2>Birthdays</h2>
       {% for person in birthdays %}
-          <li>{{ person.name }}  *{{ person.birthday }}</li>
+          <li>{{ person.name }} ({{ person.nickname }}) *{{ person.birthday }}</li>
       {% endfor %}
     {% endif %}
 
@@ -51,6 +51,10 @@ Search for address
           <table border="1">
             <tr>
               <th>{{ contact.name }}
+                  {% if contact.nickname %}
+                      ({{contact.nickname}})
+                  {% endif %}
+                  {{contact.lastname}}
                   {% if contact.birthday %}
                       *{{contact.birthday}}
                   {% endif %}
@@ -64,6 +68,22 @@ Search for address
                   <a href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_contact_{{contact.key}}')";">Edit</a>
               <th>
             </tr>
+            {% for link in contact.link %}
+              <tr>
+                    <td>
+                       <a href="/search?key={{link.link_to}}">{{link.name}}</a>
+                       is my {{link.link}}
+                    </td>
+                    <td>
+                    {% if link.attic %}
+                        <a href="javascript:void(0)" onClick="submitForm('editcontact', 'deattic_contact_{{link.link_to}}')";">De-Attic</a>
+                    {% else %}
+                        <a href="javascript:void(0)" onClick="submitForm('editcontact', 'attic_contact_{{link.link_to}}')";">Attic</a>
+                    {% endif %}
+                    <a href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_contact_{{link.link_to}}')";">Edit</a>
+                    <td>
+                </tr>
+            {% endfor %}
             {% for mobile in contact.mobile %}
               <tr>
                     <td>{{mobile.mobile}}</td>
@@ -74,19 +94,6 @@ Search for address
                         <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_mobile_{{mobile.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_mobile_{{mobile.key}}')";">Edit</a>
-                    <td>
-                </tr>
-            {% endfor %}
-            {% for other in contact.other %}
-              <tr>
-                    <td>{{other.what}}: {{other.text}}</td>
-                    <td>
-                    {% if other.attic %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'deattic_other_{{other.key}}')";">De-Attic</a>
-                    {% else %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_other_{{other.key}}')";">Attic</a>
-                    {% endif %}
-                    <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_other_{{other.key}}')";">Edit</a>
                     <td>
                 </tr>
             {% endfor %}
@@ -116,13 +123,26 @@ Search for address
                     <td>
                 </tr>
             {% endfor %}
-
+            {% for other in contact.other %}
+              <tr>
+                    <td>{{other.what}}: {{other.text}}</td>
+                    <td>
+                    {% if other.attic %}
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'deattic_other_{{other.key}}')";">De-Attic</a>
+                    {% else %}
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_other_{{other.key}}')";">Attic</a>
+                    {% endif %}
+                    <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_other_{{other.key}}')";">Edit</a>
+                    <td>
+                </tr>
+            {% endfor %}
             {% for adr in contact.address %}
               <tr>
                     <td>
                     {% for adr_line in adr.adr %}
                         <br>{{adr_line}}
                     {% endfor %}
+                    <p>{{adr.country}}
                     <p>{{adr.landline_phone}}
                     </td>
                     <td>
@@ -135,17 +155,28 @@ Search for address
                     <td>
                 </tr>
             {% endfor %}
+            {% for note in contact.note %}
+              <tr>
+                    <td>{{note.note}}</td>
+                    <td>
+                    {% if note.attic %}
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'deattic_note_{{note.key}}')";">De-Attic</a>
+                    {% else %}
+                        <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_note_{{note.key}}')";">Attic</a>
+                    {% endif %}
+                    <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_note_{{other.key}}')";">Edit</a>
+                    <td>
+                </tr>
+            {% endfor %}
 
           </table>
 
           <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_person_');">New Person</a>
           <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_contact_');">New Institution</a>
-          <a href="javascript:void(0)" onClick="submitForm('edit', 'new_email_{{contact.key}}')";">New Contact</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_mobile_{{contact.key}}')";">New Mobile Phone</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_email_{{contact.key}}')";">New Email</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_web_{{contact.key}}')";">New Website</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_address_{{contact.key}}')";">New Address</a>
-          <a href="javascript:void(0)" onClick="submitForm('edit', 'new_link_{{contact.key}}')";">New Connection</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_info_{{contact.key}}')";">New Info</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_note_{{contact.key}}')";">New Note</a>
       {% endfor %}

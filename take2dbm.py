@@ -3,6 +3,7 @@
 from google.appengine.ext import db
 from google.appengine.ext.db import polymodel
 from google.appengine.ext.db import BadValueError
+import settings
 
 class FuzzyDate(object):
     """A date which allows unknown day/month or year left out
@@ -86,7 +87,6 @@ class Company(Contact):
 
 class Person(Contact):
     """A natural Person"""
-    nickname = db.StringProperty()
     lastname = db.StringProperty()
     birthday = FuzzyDateProperty()
     # a photo
@@ -95,10 +95,6 @@ class Person(Contact):
     location = db.GeoPtProperty()
     # google login
     user = db.UserProperty()
-
-class Country(db.Model):
-    """Countries of the World"""
-    name = db.StringProperty()
 
 class Take2(polymodel.PolyModel):
     """Base class for a contact's data.
@@ -128,8 +124,8 @@ class Link(Take2):
     Bob ---'friend'---> Alice
     Alice ---'colleague'---> Bob
     """
-    link = db.StringProperty(choices=["Sister","Brother","Father","Mother",
-        "Son","Daughter","Parents","Friend","Employee","Colleague"])
+    nickname = db.StringProperty()
+    link = db.StringProperty(choices=settings.PERSON_RELATIONS+settings.INSTITUTION_RELATIONS)
     link_to = db.ReferenceProperty(Contact, required=True)
 
 class Address(Take2):
@@ -139,7 +135,7 @@ class Address(Take2):
     # Address
     adr = db.StringListProperty(required=True)
     landline_phone = db.PhoneNumberProperty()
-    country = db.ReferenceProperty(Country)
+    country = db.StringProperty(required=True, choices=[c.values()[0] for c in settings.COUNTRIES])
 
 class Mobile(Take2):
     # mobile number

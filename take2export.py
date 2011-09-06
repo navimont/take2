@@ -30,12 +30,14 @@ def encodeTake2(q_obj, attic=False):
             res['web'] = obj.web
         elif obj.class_name() == "Link":
             res['link'] = obj.link
+            res['nickname'] = obj.nickname
             res['link_to'] = str(obj.link_to.key())
         elif obj.class_name() == "Address":
             res['location_lat'] = obj.location.lat
             res['location_lon'] = obj.location.lon
             res['adr'] = obj.adr
-            res['landline_phone'] = obj.landline_phone
+            if obj.landline_phone:
+                res['landline_phone'] = obj.landline_phone
             res['country'] = obj.country
         elif obj.class_name() == "Mobile":
             res['mobile'] = obj.mobile
@@ -63,10 +65,15 @@ def encodeContact(contact, attic=False):
     res['type'] = contact.class_name().lower()
     if contact.class_name() == "Person":
         # google account
-        res['user'] = contact.user
-        # personal nickname
-        res['nickname'] = contact.nickname
-        res['lastname'] = contact.lastname
+        if contact.user:
+            user = {'nickname': contact.user.nickname(),
+                    'email': contact.user.email(),
+                    'user_id': contact.user.user_id(),
+                    'federated_identity': contact.user.federated_identity(),
+                    'federated_provider': contact.user.federated_provider()}
+            res['user'] = user
+        if contact.lastname:
+            res['lastname'] = contact.lastname
         res['birthday'] = "%04d-%02d-%02d" % (contact.birthday.year,contact.birthday.month,contact.birthday.day)
     elif contact.class_name() == "Company":
         # nothing to do
@@ -182,17 +189,22 @@ def example():
     eso.put()
     # Stephane with accent
     stef = Person(name = u'St\xe9phane',
-                  nickname = 'Stef',
                   lastname = 'Wehner',
                   birthday = FuzzyDate(year=0,month=6,day=15))
+    stef.user = users.User("test@example.com")
     stef.put()
     email = Email(contact=stef,email='sw1@monton.de')
     email.put()
     dirk = Person(name='Dirk')
     dirk.put()
-    link = Link(contact=stef,link="Friend",link_to=dirk)
+    link = Link(contact=stef,link="Friend",nickname="Pfitzi",link_to=dirk)
     link.put()
-    adr = Address(contact=stef,adr=['104 Adelphi','Brooklyn','NY','11205'],location=db.GeoPt(-70.1,30.0))
+    libby = Person(name='Elizabeth')
+    libby.user = users.User("libby@yahoo.com")
+    libby.put()
+    link = Link(contact=stef,link="Wife",nickname="Libby",link_to=libby)
+    link.put()
+    adr = Address(contact=stef,adr=['104 Adelphi','Brooklyn','NY','11205'],location=db.GeoPt(-70.1,30.0),country="United States")
     adr.put()
     mobile = Mobile(contact=stef,mobile='616-204-7136')
     mobile.put()

@@ -7,14 +7,19 @@ Address-Information
 {% block content %}
 <h2>{{titlestr}}: {{name}}</h2>
 
-<form action="{{form_action}}" method="POST">
+{% for error in errors %}
+    <li id="errorlist">{{ error }}</li>
+{% endfor %}
+
+<form action="/save{{instance}}" method="POST">
     <input name="action" type="hidden" value="{{ action }}">
     <input name="key" type="hidden" value="{{ key }}">
     <input name="instance" type="hidden" value="{{ instance }}">
+    <input name="form_file" type="hidden" value="{{ form_file }}">
+    <input name="titlestr" type="hidden" value="{{ titlestr }}">
+    <input name="name" type="hidden" value="{{ name }}">
 
-    {% for line in form %}
-        {{ line }}
-    {% endfor %}
+    {% block form %} {% endblock %}
 
     <input type="submit" value="Save" />
 </form>

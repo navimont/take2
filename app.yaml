@@ -13,5 +13,5 @@ handlers:
 - url: /search.*
   script: take2edit.py
 
-- url: /(edit|save|editcontact|savecontact)
+- url: /(edit.*|save.*)
   script: take2edit.py
