@@ -17,17 +17,20 @@
             <td><input name="lastname" type="text" value="{{lastname}}"></td>
             <td id="formhint"></td>
         <tr>
-        </tr>
-            <td id="formtag">This person is my</td>
-            <td>
-                <select name="linkselect">
-                    {% for link in linklist %}
-                    <option value="{{link}}">{{link}}</option>
-                    {% endfor %}
-                </select>
-            </td>
-            <td id="formhint">(select your relation)</td>
-        <tr>
+        <td><input name="myself" type="hidden" value="{{myself}}"></td>
+        {% if not myself %}
+            </tr>
+                <td id="formtag">This person is my</td>
+                <td>
+                    <select name="linkselect">
+                        {% for link in linklist %}
+                        <option {{link.selected}} value="{{link.link}}">{{link.link}}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td id="formhint">(select your relation)</td>
+            <tr>
+        {% endif %}
         </tr>
             <td id="formtag">Birthday</td>
             <td><input name="birthday" type="text" value="{{birthday}}"></td>

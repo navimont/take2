@@ -21,6 +21,7 @@ class FuzzyDate(object):
             self.month = month
             self.day = day
 
+
     def to_ddmmyyy(self):
         """return date as a ddmmyyyy coded integer
         for use in FuzzyDateProperty class"""
@@ -80,7 +81,11 @@ class Contact(polymodel.PolyModel):
     # person's first name or name of a company
     name = db.StringProperty(required=True)
     # archived
-    attic = db.BooleanProperty()
+    attic = db.BooleanProperty(default=False)
+    # points to the Person instance who owns (created)
+    # an instance. May point to itself.
+    owned_by = db.SelfReferenceProperty()
+
 
 class Company(Contact):
     """Represents a company"""
@@ -88,7 +93,7 @@ class Company(Contact):
 class Person(Contact):
     """A natural Person"""
     lastname = db.StringProperty()
-    birthday = FuzzyDateProperty()
+    birthday = FuzzyDateProperty(default=FuzzyDate(0,0,0))
     # a photo
     photo = db.BlobProperty()
     # where am I (right now)
@@ -110,12 +115,12 @@ class Take2(polymodel.PolyModel):
     # creation timestamp
     timestamp = db.DateTimeProperty(auto_now=True)
     # how to treat this connection
-    take2 = db.StringProperty(required=True, default="Restricted",
+    privacy = db.StringProperty(required=True, default="Restricted",
                                       choices=["Open",
                                        "Restricted",
                                        "Private"])
     # archived
-    attic = db.BooleanProperty()
+    attic = db.BooleanProperty(default=False)
 
 class Link(Take2):
     """Links between Persons/Contacts
@@ -134,7 +139,7 @@ class Address(Take2):
     location = db.GeoPtProperty()
     # Address
     adr = db.StringListProperty(required=True)
-    landline_phone = db.PhoneNumberProperty()
+    landline_phone = db.PhoneNumberProperty(required=False)
     country = db.StringProperty(required=True, choices=[c.values()[0] for c in settings.COUNTRIES])
 
 class Mobile(Take2):
@@ -149,11 +154,7 @@ class Email(Take2):
     # email
     email = db.EmailProperty()
 
-class Note(Take2):
-    # note
-    note = db.TextProperty()
-
 class Other(Take2):
     """Any other information"""
-    what = db.StringProperty(choices=[])
+    what = db.StringProperty(choices=settings.OTHER_TAGS)
     text = db.StringProperty()

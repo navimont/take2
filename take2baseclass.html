@@ -14,12 +14,11 @@
     <!-- now for the map -->
   </head>
   <body">
-      <a name="home" href='take2.html'>Take2</a>
-      {% if nickname %}
-          <div id=login><a href="logout">logout {{ nickname }}</a></div>
-      {% else %}
-          <div id=logout><a href="login">login</a></div>
-      {% endif %}
+      <div id="pagehead">
+          <a name="home" href='/search'>Take2</a>
+          <div id=loginout><a href="{{loginout_url}}">{{loginout_text}}</a></div>
+      <div>
+      <br>
       {% block content %} {% endblock %}
   </body>
 </html>

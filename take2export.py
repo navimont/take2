@@ -4,6 +4,7 @@ import logging
 import os
 import yaml
 import json
+import settings
 from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.ext import webapp
@@ -11,7 +12,7 @@ from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate
-from take2dbm import Link, Email, Address, Mobile, Web, Note, Other
+from take2dbm import Link, Email, Address, Mobile, Web, Other
 
 def encodeTake2(q_obj, attic=False):
     """Encodes the results of a query for Take2
@@ -23,7 +24,7 @@ def encodeTake2(q_obj, attic=False):
         res['key'] = str(obj.key())
         res['type'] = obj.class_name().lower()
         res['timestamp'] = obj.timestamp.isoformat()
-        res['take2'] = obj.take2
+        res['privacy'] = obj.privacy
         if obj.class_name() == "Email":
             res['email'] = obj.email
         elif obj.class_name() == "Web":
@@ -41,8 +42,6 @@ def encodeTake2(q_obj, attic=False):
             res['country'] = obj.country
         elif obj.class_name() == "Mobile":
             res['mobile'] = obj.mobile
-        elif obj.class_name() == "Note":
-            res['note'] = obj.note
         elif obj.class_name() == "Other":
             res['what'] = obj.what
             res['text'] = obj.text
@@ -63,6 +62,11 @@ def encodeContact(contact, attic=False):
     res['key'] = str(contact.key())
     res['name'] = contact.name
     res['type'] = contact.class_name().lower()
+    if contact.owned_by:
+        res['owned_by'] = str(contact.owned_by.key())
+    else:
+        # if no value is filled, it's owned by itself
+        res['owned_by'] = str(contact.key())
     if contact.class_name() == "Person":
         # google account
         if contact.user:
@@ -74,7 +78,8 @@ def encodeContact(contact, attic=False):
             res['user'] = user
         if contact.lastname:
             res['lastname'] = contact.lastname
-        res['birthday'] = "%04d-%02d-%02d" % (contact.birthday.year,contact.birthday.month,contact.birthday.day)
+        if contact.birthday.has_year() or contact.birthday.has_month() or contact.birthday.has_day():
+            res['birthday'] = "%04d-%02d-%02d" % (contact.birthday.year,contact.birthday.month,contact.birthday.day)
     elif contact.class_name() == "Company":
         # nothing to do
         pass
@@ -82,7 +87,7 @@ def encodeContact(contact, attic=False):
         assert True, "Invalid class name: %s" % contact.class_name()
 
     # now encode the contact's address, email etc.
-    for take2 in [Email,Note,Web,Address,Mobile,Link,Other]:
+    for take2 in [Email,Web,Address,Mobile,Link,Other]:
         q_obj = take2.all()
         q_obj.filter("contact =", contact.key())
         q_obj.order('-timestamp')
@@ -127,7 +132,7 @@ class Take2Export(webapp.RequestHandler):
                 logging.Critical("Found wrong # of user: %s [%s]" % (user.nickname(), ", ".join([u.name for u in us])))
                 self.error(500)
                 return
-            contacts.append(encodeContact(us, False))
+            contacts.append(encodeContact(us[0], False))
 
         self.response.out.write(json.dumps(contacts,indent=2))
         self.response.out.write(yaml.dump(contacts,))
@@ -195,7 +200,7 @@ def example():
     stef.put()
     email = Email(contact=stef,email='sw1@monton.de')
     email.put()
-    dirk = Person(name='Dirk')
+    dirk = Person(name='Dirk',ownde_by=stef)
     dirk.put()
     link = Link(contact=stef,link="Friend",nickname="Pfitzi",link_to=dirk)
     link.put()
@@ -213,7 +218,7 @@ def example():
 
 application = webapp.WSGIApplication([('/import.*', Take2Import),
                                       ('/export', Take2Export),
-                                     ],debug=True)
+                                     ],settings.DEBUG)
 
 def main():
     example()

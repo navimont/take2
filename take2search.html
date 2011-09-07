@@ -23,8 +23,8 @@ Search for address
     <form name="search" action="/search" method="GET">
       <label for="q">Search: </label>
       <input type="text" name="query" value="{{ query|escape }}">
-      <input type="checkbox" name="attic" value="attic">show archived data (attic)<br>
       <a href="javascript:void(0)" onClick="submitForm('search','search');">Search</a>
+      <br><input type="checkbox" name="attic" value="attic">show archived data (attic)
     </form>
 
     {% if birthdays %}
@@ -38,17 +38,23 @@ Search for address
       <h2>{{ result|length }} Results for "{{ query|escape }}":</h2>
     {% endif %}
 
-    <form name="editcontact" action="/editcontact" method="POST">
-                  <input type="hidden" name="action" value="">
+    <form name="editcompany" action="/editcompany" method="POST">
+        <!-- hidden input field is used together with javascript to submit -->
+        <input type="hidden" name="action" value="">
+    </form>
+
+    <form name="editperson" action="/editperson" method="POST">
+         <input type="hidden" name="action" value="">
+    </form>
+
+    <form name="edit" action="/edit" method="POST">
+       <input type="hidden" name="action" value="">
     </form>
 
     {% if result %}
       {% for contact in result %}
-	     <form name="edit" action="/edit" method="POST">
-          <!-- hidden input field is used together with javascript to submit -->
-          <input type="hidden" name="action" value="">
 
-          <table border="1">
+          <table border="1" cols="2">
             <tr>
               <th>{{ contact.name }}
                   {% if contact.nickname %}
@@ -61,29 +67,27 @@ Search for address
               </th>
               <th>
                   {% if contact.attic %}
-                      <a href="javascript:void(0)" onClick="submitForm('editcontact', 'deattic_contact_{{contact.key}}')";">De-Attic</a>
+                      <a href="javascript:void(0)" onClick="submitForm('edit{{contact.type}}', 'deattic_{{contact.key}}')";">De-Attic</a>
                   {% else %}
-                      <a href="javascript:void(0)" onClick="submitForm('editcontact', 'attic_contact_{{contact.key}}')";">Attic</a>
+                      <a href="javascript:void(0)" onClick="submitForm('edit{{contact.type}}', 'attic_{{contact.key}}')";">Attic</a>
                   {% endif %}
-                  <a href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_contact_{{contact.key}}')";">Edit</a>
+                  <a href="javascript:void(0)" onClick="submitForm('edit{{contact.type}}', 'edit_{{contact.key}}')";">Edit</a>
               <th>
             </tr>
-            {% for link in contact.link %}
+            {% if contact.relation_to_me %}
+            <tr>
+                <td colspan="2">
+                    {{contact.relation_to_me}}
+                </td>
+            </tr>
+            {% endif %}
+            {% if contact.user %}
               <tr>
-                    <td>
-                       <a href="/search?key={{link.link_to}}">{{link.name}}</a>
-                       is my {{link.link}}
-                    </td>
-                    <td>
-                    {% if link.attic %}
-                        <a href="javascript:void(0)" onClick="submitForm('editcontact', 'deattic_contact_{{link.link_to}}')";">De-Attic</a>
-                    {% else %}
-                        <a href="javascript:void(0)" onClick="submitForm('editcontact', 'attic_contact_{{link.link_to}}')";">Attic</a>
-                    {% endif %}
-                    <a href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_contact_{{link.link_to}}')";">Edit</a>
-                    <td>
-                </tr>
-            {% endfor %}
+                  <td colspan="2">
+                      Google account: {{contact.user.nickname}}
+                  </td>
+              </tr>
+            {% endif %}
             {% for mobile in contact.mobile %}
               <tr>
                     <td>{{mobile.mobile}}</td>
@@ -94,7 +98,7 @@ Search for address
                         <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_mobile_{{mobile.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_mobile_{{mobile.key}}')";">Edit</a>
-                    <td>
+                    </td>
                 </tr>
             {% endfor %}
             {% for email in contact.email %}
@@ -107,7 +111,7 @@ Search for address
                         <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_email_{{email.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_email_{{email.key}}')";">Edit</a>
-                    <td>
+                    </td>
                 </tr>
             {% endfor %}
             {% for web in contact.web %}
@@ -120,7 +124,7 @@ Search for address
                         <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_web_{{web.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_web_{{web.key}}')";">Edit</a>
-                    <td>
+                    </td>
                 </tr>
             {% endfor %}
             {% for other in contact.other %}
@@ -133,7 +137,7 @@ Search for address
                         <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_other_{{other.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_other_{{other.key}}')";">Edit</a>
-                    <td>
+                    </td>
                 </tr>
             {% endfor %}
             {% for adr in contact.address %}
@@ -143,7 +147,9 @@ Search for address
                         <br>{{adr_line}}
                     {% endfor %}
                     <p>{{adr.country}}
-                    <p>{{adr.landline_phone}}
+                    {% if adr.landline_phone %}
+                        <p>phone: {{adr.landline_phone}}
+                    {% endif %}
                     </td>
                     <td>
                     {% if web.attic %}
@@ -152,37 +158,23 @@ Search for address
                         <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_address_{{adr.key}}')";">Attic</a>
                     {% endif %}
                     <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_address_{{adr.key}}')";">Edit</a>
-                    <td>
+                    </td>
                 </tr>
             {% endfor %}
-            {% for note in contact.note %}
-              <tr>
-                    <td>{{note.note}}</td>
-                    <td>
-                    {% if note.attic %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'deattic_note_{{note.key}}')";">De-Attic</a>
-                    {% else %}
-                        <a href="javascript:void(0)" onClick="submitForm('edit', 'attic_note_{{note.key}}')";">Attic</a>
-                    {% endif %}
-                    <a href="javascript:void(0)" onClick="submitForm('edit', 'edit_note_{{other.key}}')";">Edit</a>
-                    <td>
-                </tr>
-            {% endfor %}
-
           </table>
-
-          <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_person_');">New Person</a>
-          <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_contact_');">New Institution</a>
+          <br>
+          <a href="javascript:void(0)" onClick="submitForm('editperson', 'new_');">New Person</a>
+          <a href="javascript:void(0)" onClick="submitForm('editcompany', 'new_');">New Institution</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_mobile_{{contact.key}}')";">New Mobile Phone</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_email_{{contact.key}}')";">New Email</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_web_{{contact.key}}')";">New Website</a>
           <a href="javascript:void(0)" onClick="submitForm('edit', 'new_address_{{contact.key}}')";">New Address</a>
-          <a href="javascript:void(0)" onClick="submitForm('edit', 'new_info_{{contact.key}}')";">New Info</a>
-          <a href="javascript:void(0)" onClick="submitForm('edit', 'new_note_{{contact.key}}')";">New Note</a>
+          <a href="javascript:void(0)" onClick="submitForm('edit', 'new_other_{{contact.key}}')";">New Info</a>
+          <hr>
       {% endfor %}
     {% else %}
-          <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_person_');">New Person</a>
-          <a href="javascript:void(0)" onClick="submitForm('editcontact', 'new_contact_');">New Institution</a>
-       </form>
+          <hr>
+          <a href="javascript:void(0)" onClick="submitForm('editperson', 'new_');">New Person</a>
+          <a href="javascript:void(0)" onClick="submitForm('editcompany', 'new_');">New Institution</a>
     {% endif %}
 {% endblock %}

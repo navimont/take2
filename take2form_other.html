@@ -1,0 +1,17 @@
+{% extends "take2edit.html" %}
+
+{% block form %}
+    <table>
+        <tr>
+            <td id="formtag">
+                <select name="what">
+                    {% for tag in taglist %}
+                    <option {{tag.selected}} value="{{tag.choice}}">{{tag.choice}}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td><input name="text" type="text" value="{{text}}"></td>
+            <td id="formhint"></td>
+        </tr>
+    </table>
+{% endblock %}

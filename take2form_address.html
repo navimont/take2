@@ -8,9 +8,15 @@
             <td id="formhint"></td>
         </tr>
         <tr>
-            <td id="formtag">Country</td>
-            <td><input type="text" name="country" value="{{country}}" size="20"></td>
-            <td id="formhint">(e.g. United States)</td>
+            <td id="formtag"></td>
+            <td>
+                <select name="country">
+                    {% for land in landlist %}
+                    <option {{land.selected}} value="{{land.country}}">{{land.country}}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td id="formhint"></td>
         </tr>
         <tr>
             <td id="formtag">Phone</td>

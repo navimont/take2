@@ -1,7 +1,21 @@
 """Settings file for Take2"""
 
+import os
+import logging
+
+DEBUG = os.environ['SERVER_SOFTWARE'].startswith('Dev')
+
+LOG_LEVEL=logging.WARNING
+if DEBUG:
+    LOG_LEVEL=logging.DEBUG
+
+# possible relations between real persons
 PERSON_RELATIONS = ["Wife","Husband","Girlfriend","Boyfriend","Partner","Friend","Colleague","Sister","Brother","Father","Mother","Son","Daughter","Parents"]
+# possible relations between real persons and institutions
 INSTITUTION_RELATIONS = ["Employee","Member","Client"]
+
+# possible choices for field other
+OTHER_TAGS = ['Banc account','username/login']
 
 COUNTRIES = [{"US":"United States"},
 {"CA":"Canada"},
@@ -76,7 +90,6 @@ COUNTRIES = [{"US":"United States"},
 {"FJ":"Fiji"},
 {"FI":"Finland"},
 {"FR":"France"},
-{"FX":"France, Metropolitan"},
 {"GF":"French Guiana"},
 {"PF":"French Polynesia"},
 {"TF":"French Southern Territories"},
@@ -103,7 +116,7 @@ COUNTRIES = [{"US":"United States"},
 {"IS":"Iceland"},
 {"IN":"India"},
 {"ID":"Indonesia"},
-{"IR":"Iran (Islamic Republic of)"},
+{"IR":"Iran"},
 {"IQ":"Iraq"},
 {"IE":"Ireland"},
 {"IL":"Israel"},
@@ -115,8 +128,7 @@ COUNTRIES = [{"US":"United States"},
 {"KZ":"Kazakhstan"},
 {"KE":"Kenya"},
 {"KI":"Kiribati"},
-{"KP":"Korea, Democratic People's Republic of"},
-{"KR":"Korea, Republic of"},
+{"KR":"Korea"},
 {"KW":"Kuwait"},
 {"KG":"Kyrgyzstan"},
 {"LA":"Lao People's Democratic Republic"},
@@ -226,7 +238,6 @@ COUNTRIES = [{"US":"United States"},
 {"UA":"Ukraine"},
 {"AE":"United Arab Emirates"},
 {"GB":"United Kingdom"},
-{"UM":"United States minor outlying islands"},
 {"UY":"Uruguay"},
 {"UZ":"Uzbekistan"},
 {"VU":"Vanuatu"},
