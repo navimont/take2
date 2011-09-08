@@ -4,6 +4,9 @@ runtime: python
 api_version: 1
 
 handlers:
+- url: /static
+  static_dir: static
+
 - url: /export.*
   script: take2export.py
 
@@ -17,3 +20,6 @@ handlers:
   script: take2edit.py
   login: required
 
+- url: /geo.*
+  script: take2geo.py
+  login: required

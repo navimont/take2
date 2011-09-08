@@ -644,7 +644,7 @@ application = webapp.WSGIApplication([('/search.*', Take2Search),
                                      ],debug=True)
 
 def main():
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(settings.LOG_LEVEL)
     run_wsgi_app(application)
 
 if __name__ == "__main__":
