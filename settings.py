@@ -14,7 +14,7 @@ PERSON_RELATIONS = ["Wife","Husband","Girlfriend","Boyfriend","Partner","Friend"
 # possible relations between real persons and institutions
 INSTITUTION_RELATIONS = ["Employee","Member","Client"]
 
-GOOGLE_GEOCODING_URI = "http://maps.googleapis.com/maps/api/geocode/json"
+GEOCODING_URI = "http://maps.googleapis.com/maps/api/geocode/json"
 
 # possible choices for field other
 OTHER_TAGS = ['Banc account','username/login']

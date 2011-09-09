@@ -40,6 +40,10 @@ def encodeTake2(q_obj, attic=False):
             if obj.landline_phone:
                 res['landline_phone'] = obj.landline_phone
             res['country'] = obj.country
+            if obj.barrio:
+                res['barrio'] = obj.barrio
+            if obj.town:
+                res['town'] = obj.town
         elif obj.class_name() == "Mobile":
             res['mobile'] = obj.mobile
         elif obj.class_name() == "Other":

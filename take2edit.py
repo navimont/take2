@@ -486,8 +486,10 @@ class Take2Edit(webapp.RequestHandler):
                 template_values['adr'] = "\n".join(t2.adr)
                 template_values['lat'] = t2.location.lat
                 template_values['lon'] = t2.location.lon
-                template_values['landline_phone'] = t2.landline_phone
+                template_values['landline_phone'] = "" if not t2.landline_phone else t2.landline_phone
                 template_values['country'] = t2.country
+                template_values['town'] = "" if not t2.town else t2.town
+                template_values['barrio'] = "" if not t2.barrio else t2.barrio
             else:
                 template_values['landlist'] = prepareListOfCountries()
         if instance == 'mobile':
@@ -581,9 +583,13 @@ class Take2Save(webapp.RequestHandler):
             if instance == 'address':
                 country = self.request.get("country", None)
                 template_values['landlist'] = prepareListOfCountries(country)
-                lat = float("0%s" % self.request.get("lat", ""))
-                lon = float("0%s" % self.request.get("lon", ""))
+                lat_raw = self.request.get("lat", "")
+                lat = 0.0 if len(lat_raw) == 0 else float(lat_raw)
+                lon_raw = self.request.get("lon", "")
+                lon = 0.0 if len(lon_raw) == 0 else float(lon_raw)
                 adr = self.request.get("adr", "").split("\n")
+                town = self.request.get("town", "")
+                barrio = self.request.get("barrio", "")
                 # quite some effort in order to allow an empty phone number!
                 phone = self.request.get("landline_phone", "").replace("None","")
                 if len(phone):
@@ -598,6 +604,7 @@ class Take2Save(webapp.RequestHandler):
                     obj1 = Address(parent=obj0,
                                   location=db.GeoPt(lon=lon, lat=lat), adr=adr,
                                   landline_phone=landline_phone, country=country,
+                                  town=town, barrio=barrio,
                                   contact=contact.key())
             elif instance == 'mobile':
                 mobile = db.PhoneNumber(self.request.get("mobile", ""))

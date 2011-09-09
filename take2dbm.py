@@ -96,8 +96,6 @@ class Person(Contact):
     birthday = FuzzyDateProperty(default=FuzzyDate(0,0,0))
     # a photo
     photo = db.BlobProperty()
-    # where am I (right now)
-    location = db.GeoPtProperty()
     # google login
     user = db.UserProperty()
 
@@ -141,6 +139,9 @@ class Address(Take2):
     adr = db.StringListProperty(required=True)
     landline_phone = db.PhoneNumberProperty(required=False)
     country = db.StringProperty(required=True, choices=[c.values()[0] for c in settings.COUNTRIES])
+    # those are filled by the address lookup (geocoding)
+    town = db.StringProperty()
+    barrio = db.StringProperty()
 
 class Mobile(Take2):
     # mobile number
