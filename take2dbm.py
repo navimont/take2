@@ -84,8 +84,7 @@ class Contact(polymodel.PolyModel):
     attic = db.BooleanProperty(default=False)
     # points to the Person instance who owns (created)
     # an instance. May point to itself.
-    owned_by = db.SelfReferenceProperty()
-
+    owned_by = db.SelfReferenceProperty(collection_name="owns_contacts")
 
 class Company(Contact):
     """Represents a company"""
@@ -112,24 +111,30 @@ class Take2(polymodel.PolyModel):
     contact = db.ReferenceProperty(reference_class=None, required=True)
     # creation timestamp
     timestamp = db.DateTimeProperty(auto_now=True)
-    # how to treat this connection
-    privacy = db.StringProperty(required=True, default="Restricted",
-                                      choices=["Open",
-                                       "Restricted",
-                                       "Private"])
+    # Determines whether orther people can see this property
+    # private: Only the creator can see it
+    # restricted: People whom the creator trusts can see it
+    # open: The whole world can see it
+    privacy = db.StringProperty(choices=["private","restricted","public"], default="restricted")
     # archived
     attic = db.BooleanProperty(default=False)
 
 class Link(Take2):
     """Links between Persons/Contacts
     This elements exists always twice for every link
-    such as Bob can have another link to Alice as vice versa
+    such as Bob can have another 'link' to Alice as vice versa
     Bob ---'friend'---> Alice
     Alice ---'colleague'---> Bob
     """
     nickname = db.StringProperty()
     link = db.StringProperty(choices=settings.PERSON_RELATIONS+settings.INSTITUTION_RELATIONS)
     link_to = db.ReferenceProperty(Contact, required=True)
+
+class Country(db.Model):
+    """List of countries of the world"""
+    ccode = db.StringProperty()
+    country = db.StringProperty(required=True)
+
 
 class Address(Take2):
     """Point of interest as was loaded from the OSM database"""
@@ -138,7 +143,7 @@ class Address(Take2):
     # Address
     adr = db.StringListProperty(required=True)
     landline_phone = db.PhoneNumberProperty(required=False)
-    country = db.StringProperty(required=True, choices=[c.values()[0] for c in settings.COUNTRIES])
+    country = db.ReferenceProperty(Country)
     # those are filled by the address lookup (geocoding)
     town = db.StringProperty()
     barrio = db.StringProperty()

@@ -1,0 +1,43 @@
+{% extends "take2baseclass.html" %}
+
+{% block title %}
+Address-Information
+{% endblock %}
+
+{% block content %}
+<div class="span-24">
+<h1>{{titlestr}}: {{name}}</h1>
+<div>
+
+{% for error in errors %}
+    <div class="error">{{ error }}</div>
+{% endfor %}
+
+<form name="save" action="/save{{instance}}" method="POST">
+    <input name="action" type="hidden" value="{{ action }}">
+    <input name="key" type="hidden" value="{{ key }}">
+    <input name="instance" type="hidden" value="{{ instance }}">
+    <input name="form_file" type="hidden" value="{{ form_file }}">
+    <input name="titlestr" type="hidden" value="{{ titlestr }}">
+    <input name="name" type="hidden" value="{{ name }}">
+
+    <div class="span-24">
+        <div class="span-6">
+            &nbsp;
+            <!-- left margin -->
+        </div>
+        <div class="span-12">
+            {% block form %} {% endblock %}
+        </div>
+        <div class="span-6 last">
+            <!-- right margin -->
+            &nbsp;
+        </div>
+    </div>
+
+    <div class="span-24">
+      <a class="button" href="javascript:void(0)" onClick="submitForm('save','{{action}}');">Save</a>
+    </div>
+</form>
+
+{% endblock %}

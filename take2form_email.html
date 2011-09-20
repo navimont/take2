@@ -1,11 +1,10 @@
-{% extends "take2edit.html" %}
+{% extends "take2form.html" %}
 
 {% block form %}
-    <table>
-        <tr>
-            <td id="formtag">Email</td>
-            <td><input name="email" type="text" value="{{email}}"></td>
-            <td id="formhint"></td>
-        </tr>
-    </table>
+    <div class="span-8">
+      <input class="input_text" name="email" type="text" value="{{email}}">
+    </div>
+    <div class="span-4 formtag last">
+      Email
+    </div>
 {% endblock %}

@@ -14,13 +14,17 @@ from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate
-from take2dbm import Link, Email, Address, Mobile, Web, Other
+from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
 from take2export import encodeContact
-
+from take2access import getCurrentUserPerson, getCurrentUserTemplateValues, MembershipRequired
 
 def encodeContactForWebpage(dump, contact, me):
     """Revises some field in the db dump (a strcuture of lists and dictionaries)
     so that the data can be used for the template renderer
+
+    dump: contact data dump used for webpage output
+    contact: db Contact class (a Person or Company instance)
+    me: Person class representing the logged in user
     """
     if contact.class_name() == "Person":
         # birthdays are displayed without the year of birth
@@ -61,64 +65,6 @@ def saveTake2WithHistory(new,old):
             old.put()
 
 
-def getCurrentUserPerson(user):
-    """Find the person which represents the currently logged in user"""
-    q_me = Person.all()
-    q_me.filter('user =', user)
-    me = q_me.fetch(3)
-    if len(me) > 0:
-        if len(me) > 1:
-            logging.Error ("more than one person with google account: %s [%s]" % (user.nickname,user.user_id))
-        me = me[0]
-    else:
-        me = None
-
-    return me
-
-
-def getCurrentUserTemplateValues(user, page_uri, template_values=None):
-    """Set up a set of template values
-    Helpful for rendering the web page with some basic information about the user.
-    """
-    if not template_values:
-        template_values = {}
-
-    if user:
-        template_values['loginout_url'] = users.create_logout_url(page_uri)
-        template_values['loginout_text'] = 'logout %s' % (user.nickname())
-    else:
-        template_values['loginout_url'] = users.create_login_url(page_uri)
-        template_values['loginout_text'] = 'login'
-    return template_values
-
-
-def MembershipRequired(target):
-    """Decorator: Is the currently logged in user (google account) also in the take2 DB?
-
-    Also prepares the google user object, the user's take2 identity and some
-    template_values and calls the target function with those as parameters.
-    """
-    def redirectToSignupPage(self):
-        template_values = {'sorry': "Your username is not in the database. Please sign up first."}
-        path = os.path.join(os.path.dirname(__file__), 'take2sorry.html')
-        self.response.out.write(template.render(path, template_values))
-        return
-
-    def wrapper (self):
-        # Add extra parameters
-        kwargs = {'user': user,
-                  'me': me,
-                  'template_values': getCurrentUserTemplateValues(user, self.request.uri)}
-        return target(self, **kwargs)
-
-    # find my own Person object
-    user = users.get_current_user()
-    me = getCurrentUserPerson(user)
-    if not me:
-        return redirectToSignupPage
-    else:
-        logging.debug("returning wrapper")
-        return wrapper
 
 class Take2Search(webapp.RequestHandler):
     """Run a search query over the current user's realm"""
@@ -202,6 +148,32 @@ class Take2Search(webapp.RequestHandler):
         self.response.out.write(template.render(path, template_values))
 
 
+class ContactEdit(webapp.RequestHandler):
+    """present a contact including old data (attic) for editing"""
+
+    @MembershipRequired
+    def get(self, user=None, me=None, template_values={}):
+        action = self.request.get("action", None)
+        if action:
+            # if function is called from search form
+            action,contact_key = action.split("_")
+        else:
+            # function is redirected from an update page for the person or its property
+            contact_key = self.request.get("key", None)
+
+        if contact_key:
+            con = Contact.get(contact_key)
+            # this is basically a db dump
+            contact = encodeContact(con, attic=False)
+            # adjust fields and add extra fields for website renderer
+            contact = encodeContactForWebpage(contact, con, me)
+
+        # render edit page
+        template_values['contact'] = contact
+        path = os.path.join(os.path.dirname(__file__), 'take2edit.html')
+        self.response.out.write(template.render(path, template_values))
+
+
 def prepareListOfRelations(relations,selected=None):
     """prepares a list of relations in a
     datastructure ready for the template use"""
@@ -215,70 +187,111 @@ def prepareListOfRelations(relations,selected=None):
 
 
 class PersonEdit(webapp.RequestHandler):
-    """Edit existing person or add a new one"""
+    """Edit existing person's data"""
 
     @MembershipRequired
     def post(self, user=None, me=None, template_values={}):
         action,person_key = self.request.get("action", "").split("_")
-        assert action in ['new','edit'], "Undefined action: %s" % (action)
+        assert action in ['attic','deattic','edit'], "Undefined action: %s" % (action)
 
-        if action == 'edit':
-            person = Person.get(person_key)
+        # this is the person we edit
+        person = Person.get(person_key)
+
+        if action != 'edit':
+            if action == 'attic':
+                person.attic = True
+            else:
+                person.attic = False
+            person.put()
+            self.redirect('/editcontact?key=%s' % str(person.key()))
+
 
         template_values['link'] = None
 
         # define the html form fields for this object
-        form = []
-        if action == 'edit':
-            if me.key() == person.key():
-                template_values['myself'] = True
-            titlestr = "Edit Person data"
-            template_values['name'] = "%s %s" % (person.name,person.lastname)
-            template_values['firstname'] = person.name
-            if person.lastname:
-                template_values['lastname'] = person.lastname
-            template_values['birthday'] = person.birthday
-            # find relation to this person
-            q_link = Link.all()
-            q_link.filter("contact =", me)
-            q_link.filter("link_to =", person)
-            link = q_link.fetch(1)
-            if len(link):
-                link = link[0]
-                template_values['link'] = link.link
-                template_values['nickname'] = link.nickname
+        if me.key() == person.key():
+            template_values['myself'] = True
+        titlestr = "Edit Person data"
+        template_values['name'] = "%s %s" % (person.name,person.lastname)
+        template_values['firstname'] = person.name
+        if person.lastname:
+            template_values['lastname'] = person.lastname
+        template_values['birthday'] = person.birthday
+        # find relation to this person
+        q_link = Link.all()
+        q_link.filter("contact =", me)
+        q_link.filter("link_to =", person)
+        link = q_link.fetch(1)
+        if len(link):
+            link = link[0]
+            template_values['link'] = link.link
+            template_values['nickname'] = link.nickname
         else:
-            titlestr = "New Person data"
+            # person has no direct relation to me
+            pass
 
         # prepare drop down menu with preselected relation
-        form_file = 'take2form_person.html'
         relations = settings.PERSON_RELATIONS
 
         template_values['linklist'] = prepareListOfRelations(relations,template_values['link'])
-        template_values['form_file'] = form_file
+        template_values['form_file'] = 'take2form_person.html'
         template_values['titlestr'] = titlestr
         template_values['instance'] = 'person'
         template_values['action'] = action
         template_values['key'] = person_key
 
-        path = os.path.join(os.path.dirname(__file__), form_file)
+        path = os.path.join(os.path.dirname(__file__), template_values['form_file'])
+        self.response.out.write(template.render(path, template_values))
+
+
+class PersonNew(webapp.RequestHandler):
+    """Add a new personal contact"""
+
+    @MembershipRequired
+    def post(self, user=None, me=None, template_values={}):
+        person_key = self.request.get("action", None)
+
+        # this is the person the new contact relates to (not necessarily the logged in user - me)
+        person = Person.get(person_key)
+
+        template_values['link'] = None
+
+        # prepare drop down menu with preselected relation
+        relations = settings.PERSON_RELATIONS
+
+        # all this stuff has to be in the form to have it ready if the
+        # form has to be re-displayed after field error check (in PersonSave)
+        template_values['linklist'] = prepareListOfRelations(relations,template_values['link'])
+        template_values['form_file'] = 'take2form_person.html'
+        template_values['titlestr'] = "New personal contact for %s %s" % (person.name, person.lastname)
+        template_values['instance'] = 'person'
+        template_values['action'] = action
+        template_values['key'] = person_key
+
+        path = os.path.join(os.path.dirname(__file__), template_values['form_file'])
         self.response.out.write(template.render(path, template_values))
 
 
 class CompanyEdit(webapp.RequestHandler):
-    """Edit existing company or add a new one"""
+    """Edit existing company data"""
 
     @MembershipRequired
     def post(self, user=None, me=None, template_values={}):
         action,company_key = self.request.get("action", "").split("_")
-        assert action in ['new','edit'], "Undefined action: %s" % (action)
+        assert action in ['edit','attic','deattic'], "Undefined action: %s" % (action)
 
-        if action == 'edit':
-            company = Company.get(company_key)
-            template_values['company_name'] = company.name
+        company = Company.get(company_key)
+        template_values['company_name'] = company.name
+
+        if action != 'edit':
+            if action == 'attic':
+                company.attic = True
+            else:
+                company.attic = False
+            company.put()
+            self.redirect('/editcontact?key=%s' % str(company.key()))
 
         # define the html form fields for this object
-        form = []
         link = None
         if action == 'edit':
             titlestr = "Edit Institution data"
@@ -306,6 +319,29 @@ class CompanyEdit(webapp.RequestHandler):
         self.response.out.write(template.render(path, template_values))
 
 
+class CompanyNew(webapp.RequestHandler):
+    """Edit existing company or add a new one"""
+
+    @MembershipRequired
+    def post(self, user=None, me=None, template_values={}):
+        action,company_key = self.request.get("action", "").split("_")
+        assert action in ['edit','attic','deattic'], "Undefined action: %s" % (action)
+
+        # define the html form fields for this object
+        link = None
+        titlestr = "New Institution data"
+
+        form_file = 'take2form_company.html'
+        template_values['linklist'] = prepareListOfRelations(settings.INSTITUTION_RELATIONS,link)
+        template_values['form_file'] = form_file
+        template_values['titlestr'] = titlestr
+        template_values['instance'] = 'company'
+        template_values['action'] = action
+        template_values['key'] = company_key
+
+        path = os.path.join(os.path.dirname(__file__), form_file)
+        self.response.out.write(template.render(path, template_values))
+
 class PersonSave(webapp.RequestHandler):
     """Update/Save contact"""
 
@@ -319,6 +355,11 @@ class PersonSave(webapp.RequestHandler):
         if action == 'edit':
             contact = Contact.get(contact_key)
             instance = contact.class_name().lower()
+            myself = self.request.get("myself", False)
+            # find the link between the edited person and myself (the one who is logged in)
+            link = Link.all().filter("contact =", me).filter("link_to =", contact).fetch(1)
+        else:
+            link = []
 
         #
         # update database
@@ -336,6 +377,7 @@ class PersonSave(webapp.RequestHandler):
                                 lastname=self.request.get("lastname", ""),
                                 nickname=self.request.get("nickname", ""))
                 person.birthday = FuzzyDate(day=day,month=month,year=year)
+                person.owned_by = me
                 person.put()
                 contact = person
             else:
@@ -344,7 +386,7 @@ class PersonSave(webapp.RequestHandler):
                 person.lastname = lastname=self.request.get("lastname", "")
                 person.birthday = FuzzyDate(day=day,month=month,year=year)
                 person.put()
-            if not self.request.get("linkselect", None):
+            if not self.request.get("linkselect", None) and not myself:
                 raise db.BadValueError('No relation selected')
         except db.BadValueError as error:
             template_values['errors'] = [error]
@@ -359,8 +401,6 @@ class PersonSave(webapp.RequestHandler):
             return
 
         # update relation
-        me = Person.all().filter("user =", user).fetch(1)[0]
-        link = Link.all().filter("contact =", me).filter("link_to =", contact).fetch(1)
         if len(link) > 0:
             link0 = link[0]
         else:
@@ -377,7 +417,7 @@ class PersonSave(webapp.RequestHandler):
 
         db.run_in_transaction(saveTake2WithHistory, new=link1, old=link0)
 
-        self.redirect('/search?key=%s' % str(contact.key()))
+        self.redirect('/editcontact?key=%s' % str(contact.key()))
 
 
 class CompanySave(webapp.RequestHandler):
@@ -399,6 +439,7 @@ class CompanySave(webapp.RequestHandler):
         try:
             if action == 'new':
                 company = Company(name=self.request.get("company_name", ""))
+                company.owned_by = me
                 company.put()
             else:
                 company = Company.get(company_key)
@@ -436,17 +477,16 @@ class CompanySave(webapp.RequestHandler):
 
         db.run_in_transaction(saveTake2WithHistory, new=link1, old=link0)
 
-        self.redirect('/search?key=%s' % str(company.key()))
+        self.redirect('/editcontact?key=%s' % str(company.key()))
 
 
 def prepareListOfCountries(selected=None):
     """prepares a list of countries in a
     datastructure ready for the template use"""
     landlist = []
-    for lc in settings.COUNTRIES:
-        l0 = lc.values()[0]
-        choice = {'country': l0}
-        if l0 == selected:
+    for lc in Country.all():
+        choice = {'country': lc.country}
+        if lc == selected:
             choice['selected'] = "selected"
         landlist.append(choice)
     return landlist
@@ -601,9 +641,10 @@ class Take2Save(webapp.RequestHandler):
                    or obj0.adr != adr
                    or obj0.landline_phone != landline_phone
                    or obj0.country != country):
+                    country_key = Country.all().filter("country =", country).get().key()
                     obj1 = Address(parent=obj0,
                                   location=db.GeoPt(lon=lon, lat=lat), adr=adr,
-                                  landline_phone=landline_phone, country=country,
+                                  landline_phone=landline_phone, country=country_key,
                                   town=town, barrio=barrio,
                                   contact=contact.key())
             elif instance == 'mobile':
@@ -639,11 +680,14 @@ class Take2Save(webapp.RequestHandler):
         # new and old objects will be saved/updated
         db.run_in_transaction(saveTake2WithHistory, new=obj1,old=obj0)
 
-        self.redirect('/search?key=%s' % str(contact.key()))
+        self.redirect('/editcontact?key=%s' % str(contact.key()))
 
 application = webapp.WSGIApplication([('/search.*', Take2Search),
+                                      ('/editcontact', ContactEdit),
+                                      ('/newcompany', CompanyNew),
                                       ('/editcompany', CompanyEdit),
                                       ('/savecompany', CompanySave),
+                                      ('/newperson', PersonNew),
                                       ('/editperson', PersonEdit),
                                       ('/saveperson', PersonSave),
                                       ('/edit.*', Take2Edit),

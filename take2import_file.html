@@ -1,0 +1,20 @@
+{% extends "take2baseclass.html" %}
+
+{% block title %}
+<div class="span-24">
+<h1>Upload file for import</h1>
+<div>
+{% endblock %}
+
+{% block content %}
+          <form action="/importfile" enctype="multipart/form-data" method="post">
+            <div><label>Import file:</label></div>
+            <select>
+                <div><option value="json">JSON</option></div>
+                <div><option value="yaml">Yaml</option></div>
+            </select>
+            <div><input type="file" name="backup"/></div>
+            <div><input class="button" type="submit" value="load"/></div>
+          </form>
+
+{% endblock %}

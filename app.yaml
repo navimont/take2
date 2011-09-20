@@ -7,16 +7,13 @@ handlers:
 - url: /static
   static_dir: static
 
-- url: /export.*
-  script: take2export.py
-
-- url: /import
+- url: /(export.*|import|importfile)
   script: take2export.py
 
 - url: /search.*
   script: take2edit.py
 
-- url: /(edit.*|save.*)
+- url: /(new.*|edit.*|save.*)
   script: take2edit.py
   login: required
 

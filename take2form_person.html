@@ -1,6 +1,8 @@
-{% extends "take2edit.html" %}
+{% extends "take2form.html" %}
 
 {% block form %}
+    <input name="myself" type="hidden" value="{{myself}}">
+
     <table>
         <tr>
             <td id="formtag">First name</td>
@@ -17,7 +19,6 @@
             <td><input name="lastname" type="text" value="{{lastname}}"></td>
             <td id="formhint"></td>
         <tr>
-        <td><input name="myself" type="hidden" value="{{myself}}"></td>
         {% if not myself %}
             </tr>
                 <td id="formtag">This person is my</td>

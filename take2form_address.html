@@ -1,6 +1,60 @@
-{% extends "take2edit.html" %}
+{% extends "take2form.html" %}
 
 {% block form %}
+    <script language="JavaScript" type="text/javascript" src="/static/json2.js"></script>
+    <script language="JavaScript" type="text/javascript">
+        var georequest = new XMLHttpRequest();
+
+        function checkReply() {
+            if (georequest.readyState == 4) {
+                if (georequest.status == 200) {
+                    var reply = georequest.responseText;
+                    var error = "";
+                    try {
+                      var geolatlon = JSON.parse(reply);
+                    } catch (e) {
+                        error = e;
+                    }
+                    if (error == "") {
+                        document.getElementById('lat').value = geolatlon["lat"];
+                        document.getElementById('lon').value = geolatlon["lon"];
+                        var barrio = geolatlon["barrio"];
+                        var town = geolatlon["town"];
+                        document.getElementById('barrio').value = barrio;
+                        document.getElementById('town').value = town;
+                        // formatting efforts
+                        if (town != "" && barrio != "") {
+                            document.getElementById('town_and_barrio').innerHTML = barrio+", "+town;
+                        } else {
+                            document.getElementById('town_and_barrio').innerHTML = barrio+town;
+                        }
+                    }
+
+                    document.getElementById('globe').innerHTML = '<img src="static/spinning_globe0.gif">';
+                } else {
+                    // spinning
+                    document.getElementById('globe').innerHTML = '<img src="static/spinning_globe1.gif">';
+                }
+            }
+        }
+
+        function getlatlon() {
+            var adr=document.forms[0].adr.value;
+            // replace newlines by " "
+            adr = adr.replace("\n"," ")
+            var country=document.forms[0].country.value;
+            var url="/geo?adr="+adr+"+"+country;
+            // spinning
+            document.getElementById('globe').innerHTML = '<img src="static/spinning_globe1.gif">';
+            georequest.open("GET", url, true);
+            georequest.onreadystatechange = checkReply;
+            georequest.send(null);
+        }
+
+
+
+    </script>
+
     <table>
         <tr>
             <td id="formtag">Address</td>
@@ -10,7 +64,7 @@
         <tr>
             <td id="formtag"></td>
             <td>
-                <select name="country">
+                <select name="country" size="1">
                     {% for land in landlist %}
                     <option {{land.selected}} value="{{land.country}}">{{land.country}}</option>
                     {% endfor %}
@@ -24,12 +78,22 @@
             <td id="formhint">(landline phone)</td>
         </tr>
         <tr>
-            <td id="formtag">Coordinates</td>
+            <td><div id="globe"><img src="static/spinning_globe0.gif"></div></td>
             <td>
-                <input type="text" name="lat" value="{{lat}}" size="8">
-                <input type="text" name="lon" value="{{lon}}" size="9">
+                <input type="hidden" name="town" id="town" value="{{town}}" size="9" readonly>
+                <input type="hidden" name="barrio" id="barrio" value="{{barrio}}" size="9" readonly>
+                <div id="town_and_barrio">
+                {{barrio}}
+                {% if town and barrio %}
+                    ,&nbsp;
+                {% endif %}
+                {{town}}
+                </div>
+                <br>
+                <input type="text" name="lat" id="lat" value="{{lat}}" size="9">
+                <input type="text" name="lon" id="lon" value="{{lon}}" size="9">
             </td>
-            <td id="formhint">(leave empty for automatic lookup)</td>
+            <td id="button"><a href="javascript:void(0)" onClick="getlatlon()">Lookup coordinates</a></td>
         </tr>
     </table>
 {% endblock %}

@@ -10,16 +10,89 @@
     <meta property="og:site_name" content="" />
     <meta property="og:description" content=""/>
     <title>{% block pagetitle %}{% endblock %}</title>
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="static/blueprint/screen.css" type="text/css" media="screen, projection">
+    <link rel="stylesheet" href="static/blueprint/print.css" type="text/css" media="print">
+    <!--[if lt IE 8]>
+      <link rel="stylesheet" href="static/blueprint/ie.css" type="text/css" media="screen, projection">
+    <![endif]-->
+    <style type="text/css" media="screen">
+      .pagehead a:link {color: #0F150B; text-decoration:none;}
+      .pagehead a:visited {color: #26361C; text-decoration:none;}
+      .pagehead a:hover {text-decoration:underline;}
+      .pagehead a:active {text-decoration:underline;}
+      .logo {
+          padding-left: 10px;
+          font-size: 32px;
+      }
+      .pagehead {
+        background-color:#9db864;
+      }
 
-    <!-- now for the map -->
+      body {background-color:#ebffb0;}
+
+      h1 {
+          font-size: 24px;
+          padding-left: 10px;
+          padding-top: 10px;
+      }
+
+      .input_text {
+          width: 300px;
+      }
+
+      .formtag {
+          text-align: left;
+          padding-top: 10px;
+      }
+
+      .button {
+          padding: 3px;
+          font-size: 18px;
+          color: #E6E6E6;
+          border: 1px solid #030303;
+          background-color: #26361C;
+      }
+      .content_body a:link {color: #E6E6E6; text-decoration:none;}
+      .content_body a:visited {color: #E6E6E6; text-decoration:none;}
+      .content_body a:hover {cursor: pointer; text-decoration:none;}
+    </style>
+
+    <script type="text/javascript">
+      function submitForm(name, action) {
+        document.forms[name].action.value = action;
+        document.forms[name].submit();
+      }
+    </script>
   </head>
+
   <body">
-      <div id="pagehead">
-          <a name="home" href='/search'>Take2</a>
-          <div id=loginout><a href="{{loginout_url}}">{{loginout_text}}</a></div>
-      <div>
-      <br>
+    <div class="container">
+      <div id="pagehead" class="pagehead span-24 last">
+          <div class="span-6">
+            <div class="logo"><a name="home" href='/search'>Take2</a></div>
+          </div>
+          <form name="search" action="/search" method="GET">
+              <div class="span-8"  style="padding-top: 9px">
+                  <input  class="input_text" type="text" name="query" value="{{ query|escape }}">
+              </div>
+              <div class="span-2" style="padding-top: 18px">
+                  <a href="javascript:void(0)" onClick="submitForm('search','search');">Search</a>
+              </div>
+          </form>
+          <div class="span-8 last">
+            <div class="quiet" style="padding-right: 10px; text-align: right;">
+              <a href="{{loginout_url}}">{{loginout_text}}</a>
+            </div>
+          </div>
+      </div>
+
+      <span class="content_body">
       {% block content %} {% endblock %}
+      </span>
+      <div id="footer" class="span-24">
+      </div>
+    </div>
   </body>
 </html>
 

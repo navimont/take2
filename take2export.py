@@ -12,7 +12,8 @@ from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate
-from take2dbm import Link, Email, Address, Mobile, Web, Other
+from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
+from take2access import getCurrentUserTemplateValues
 
 def encodeTake2(q_obj, attic=False):
     """Encodes the results of a query for Take2
@@ -39,7 +40,7 @@ def encodeTake2(q_obj, attic=False):
             res['adr'] = obj.adr
             if obj.landline_phone:
                 res['landline_phone'] = obj.landline_phone
-            res['country'] = obj.country
+            res['country'] = obj.country.country
             if obj.barrio:
                 res['barrio'] = obj.barrio
             if obj.town:
@@ -108,6 +109,12 @@ class Take2Export(webapp.RequestHandler):
 
     def get(self):
         user = users.get_current_user()
+        format = self.request.get("format", "JSON")
+
+        if format not in ['JSON','yaml']:
+            logging.Critical("Unknown format for export: %s" % (format))
+            self.error(500)
+            return
 
         # not logged in
         if not user:
@@ -138,14 +145,34 @@ class Take2Export(webapp.RequestHandler):
                 return
             contacts.append(encodeContact(us[0], False))
 
-        self.response.out.write(json.dumps(contacts,indent=2))
-        self.response.out.write(yaml.dump(contacts,))
+        if format == 'JSON':
+            self.response.headers['Content-Type'] = "text/json"
+            self.response.out.write(json.dumps(contacts,indent=2))
+        else:
+            self.response.headers['Content-Type'] = "text/yaml"
+            self.response.out.write(yaml.dump(contacts,))
+
+class Take2SelectImportFile(webapp.RequestHandler):
+    """Present upload form for import file"""
+
+    def get(self):
+        user = users.get_current_user()
+        template_values = getCurrentUserTemplateValues(user,self.request.uri)
+
+        path = os.path.join(os.path.dirname(__file__), "take2import_file.html")
+        self.response.out.write(template.render(path, template_values))
 
 
 class Take2Import(webapp.RequestHandler):
     """Import data into database"""
-    def get(self):
+
+    def post(self):
         user = users.get_current_user()
+        format = self.request.get("json", None)
+        if not format:
+            format = 'yaml'
+        else:
+            format = 'JSON'
 
         # not logged in
         if not user:
@@ -167,33 +194,31 @@ class Take2Import(webapp.RequestHandler):
             self.error(500)
             return
 
-        try:
-            fp = open(file,'r')
-        except IOError:
-            logging.Error ("Can't open backup file: %s" % (file))
-            self.error(500)
-            return
+        data = self.request.get("backup", None)
 
-        icons = json.load(fp)
-        for icon in icons:
-            # open icon file
-            try:
-                iconfp = open(os.path.join(icondir,icon['file']),'r')
-            except IOError:
-                logging.Error ("Can't open icon file: %s/%s" % (icondir,file))
-                continue
+        if data:
+            if format == 'JSON':
+                dbdump = json.loads(data)
+            else:
+                dbdump = yaml.load(data)
 
-            # instantiate icon object
-            epoicon = Epoicon(key=icon['key'], name=icon['name'], file=icon['file'], icon=iconfp.read())
-            iconfp.close()
-            epoicon.put()
 
-        fp.close()
-        self.redirect('/epoiadmin')
+
+        self.redirect('/search')
 
 def example():
+    """Fill DB with some data for testing"""
+    # purge DB
     for c in Contact.all():
         c.delete()
+    for c in Country.all():
+        c.delete()
+    # list of countries
+    for cd in settings.COUNTRIES:
+        for cc,c in cd.items():
+            country = Country(ccode=cc,country=c)
+            country.put()
+    # contacts
     eso = Company (name = 'ESO')
     eso.put()
     # Stephane with accent
@@ -204,7 +229,7 @@ def example():
     stef.put()
     email = Email(contact=stef,email='sw1@monton.de')
     email.put()
-    dirk = Person(name='Dirk',ownde_by=stef)
+    dirk = Person(name='Dirk',owned_by=stef)
     dirk.put()
     link = Link(contact=stef,link="Friend",nickname="Pfitzi",link_to=dirk)
     link.put()
@@ -213,15 +238,19 @@ def example():
     libby.put()
     link = Link(contact=stef,link="Wife",nickname="Libby",link_to=libby)
     link.put()
-    adr = Address(contact=stef,adr=['104 Adelphi','Brooklyn','NY','11205'],location=db.GeoPt(-70.1,30.0),country="United States")
+    country = Country.all().filter("ccode =", "US").get()
+    adr = Address(contact=stef,adr=['104 Adelphi','Brooklyn','NY','11205'],location=db.GeoPt(-70.1,30.0),country=country)
     adr.put()
     mobile = Mobile(contact=stef,mobile='616-204-7136')
     mobile.put()
     mobile = Mobile(contact=stef,mobile='616-920-2360')
     mobile.put()
+    mobile = Mobile(contact=libby,mobile='616-204-7136')
+    mobile.put()
 
-application = webapp.WSGIApplication([('/import.*', Take2Import),
-                                      ('/export', Take2Export),
+application = webapp.WSGIApplication([('/importfile', Take2Import),
+                                      ('/import', Take2SelectImportFile),
+                                      ('/export.*', Take2Export),
                                      ],settings.DEBUG)
 
 def main():
