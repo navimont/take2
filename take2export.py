@@ -5,6 +5,7 @@ import os
 import yaml
 import json
 import settings
+import datetime
 from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.ext import webapp
@@ -162,7 +163,6 @@ class Take2SelectImportFile(webapp.RequestHandler):
         path = os.path.join(os.path.dirname(__file__), "take2import_file.html")
         self.response.out.write(template.render(path, template_values))
 
-
 class Take2Import(webapp.RequestHandler):
     """Import data into database"""
 
@@ -187,14 +187,18 @@ class Take2Import(webapp.RequestHandler):
             self.response.out.write(template.render(path, template_values))
             return
 
-        # filename is given in URL
-        file = self.request.get('file')
-        if not file:
-            logging.Error ("No 'file' in URL parameters")
-            self.error(500)
-            return
-
         data = self.request.get("backup", None)
+
+        # purge DB
+        for c in Contact.all():
+            c.delete()
+        for c in Country.all():
+            c.delete()
+        # list of countries
+        for cd in settings.COUNTRIES:
+            for cc,c in cd.items():
+                country = Country(ccode=cc,country=c)
+                country.put()
 
         if data:
             if format == 'JSON':
@@ -202,51 +206,72 @@ class Take2Import(webapp.RequestHandler):
             else:
                 dbdump = yaml.load(data)
 
+        # dictionary will be filled with a reference to the freshly created person
+        # object using the former key as stored in the dbdump. Neede later for resolving
+        # the owned by references.
+        person_by_old_key = {}
+        new_contact_with_old_owned_by = []
+        # list of contact objects
+        for contact in dbdump:
+            if contact['type'] == "person":
+                entry = Person(name=contact['name'])
+                if 'lastname' in contact:
+                    entry.lastname = lastname=contact['lastname']
+                if 'birthday' in contact:
+                    year,month,day = contact['birthday'].split('-')
+                    entry.birthday = FuzzyDate(day=int(day),month=int(month),year=int(year))
+                if 'user' in contact:
+                    entry.user = users.User(email=contact['user']['email'],
+                                  federated_identity=contact['user']['federated_identity'])
+                entry.put()
+                person_by_old_key[contact['key']] = entry
+            if contact['type'] == "company":
+                entry = Company(name=contact['name'])
+                entry.put()
 
+            new_contact_with_old_owned_by.append((entry,contact['owned_by']))
+            # check for all take2 objects
+            for take2 in [Email,Web,Address,Mobile,Link,Other]:
+                classname = take2.class_name().lower()
+                if classname in contact:
+                    for m in contact[classname]:
+                        obj = None
+                        if classname == 'mobile':
+                            obj = Mobile(mobile=m['mobile'], contact=entry)
+                        if classname == 'email':
+                            obj = Email(email=m['email'], contact=entry)
+                        if classname == 'web':
+                            obj = Web(web=m['web'], contact=entry)
+                        if classname == 'other':
+                            obj = Other(what=m['what'], text=m['text'], contact=entry)
+                        if classname == 'address':
+                            obj = Address(adr=m['adr'], contact=entry)
+                            if 'location_lat' in m and 'location_lon' in m:
+                                obj.location = db.GeoPt(lat=float(m['location_lat']),lon=float(m['location_lon']))
+                            if 'landline_phone' in m:
+                                obj.landline_phone = m['landline_phone']
+                            if 'country' in m:
+                                country = Country.all().filter("country =", country).get()
+                                # If country name is not in DB it is added
+                                if not country:
+                                    country = Country(country=m['country'])
+                                    country.put()
+                                obj.country = country.key()
+                        if obj:
+                            # timestamp and privacy fields are the same for all take2 objects
+                            dt,us= m['timestamp'].split(".")
+                            obj.timestamp = datetime.datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S")
+                            obj.privacy = m['privacy']
+                            obj.put()
+
+            logging.debug("Added %s" % contact['name'])
+
+        # Run over the contacts to resolve the owned_by references
+        for contact,old_key in new_contact_with_old_owned_by:
+            contact.owned_by = person_by_old_key[old_key].key()
+            contact.put()
 
         self.redirect('/search')
-
-def example():
-    """Fill DB with some data for testing"""
-    # purge DB
-    for c in Contact.all():
-        c.delete()
-    for c in Country.all():
-        c.delete()
-    # list of countries
-    for cd in settings.COUNTRIES:
-        for cc,c in cd.items():
-            country = Country(ccode=cc,country=c)
-            country.put()
-    # contacts
-    eso = Company (name = 'ESO')
-    eso.put()
-    # Stephane with accent
-    stef = Person(name = u'St\xe9phane',
-                  lastname = 'Wehner',
-                  birthday = FuzzyDate(year=0,month=6,day=15))
-    stef.user = users.User("test@example.com")
-    stef.put()
-    email = Email(contact=stef,email='sw1@monton.de')
-    email.put()
-    dirk = Person(name='Dirk',owned_by=stef)
-    dirk.put()
-    link = Link(contact=stef,link="Friend",nickname="Pfitzi",link_to=dirk)
-    link.put()
-    libby = Person(name='Elizabeth')
-    libby.user = users.User("libby@yahoo.com")
-    libby.put()
-    link = Link(contact=stef,link="Wife",nickname="Libby",link_to=libby)
-    link.put()
-    country = Country.all().filter("ccode =", "US").get()
-    adr = Address(contact=stef,adr=['104 Adelphi','Brooklyn','NY','11205'],location=db.GeoPt(-70.1,30.0),country=country)
-    adr.put()
-    mobile = Mobile(contact=stef,mobile='616-204-7136')
-    mobile.put()
-    mobile = Mobile(contact=stef,mobile='616-920-2360')
-    mobile.put()
-    mobile = Mobile(contact=libby,mobile='616-204-7136')
-    mobile.put()
 
 application = webapp.WSGIApplication([('/importfile', Take2Import),
                                       ('/import', Take2SelectImportFile),
@@ -254,8 +279,7 @@ application = webapp.WSGIApplication([('/importfile', Take2Import),
                                      ],settings.DEBUG)
 
 def main():
-    example()
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(settings.LOG_LEVEL)
     run_wsgi_app(application)
 
 if __name__ == "__main__":

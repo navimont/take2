@@ -1,9 +1,10 @@
 """Take2 functions for user access right checks"""
 
 import os
+import logging
 from google.appengine.ext import db
 from google.appengine.api import users
-
+from take2dbm import Person
 
 def getCurrentUserPerson(user):
     """Find the person which represents the currently logged in user"""
