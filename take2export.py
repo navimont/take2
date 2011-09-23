@@ -14,14 +14,27 @@ from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate
 from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
-from take2access import getCurrentUserTemplateValues
+from take2access import get_current_user_template_values, visible_contacts
 
-def encodeTake2(q_obj, attic=False):
-    """Encodes the results of a query for Take2
-    descendant objects.
+def encode_take2(contact, include_private_objects=False, include_attic=False):
+    """Encodes the contact's take2 property objects
+
+    Returns a dictionary with the property's name
+    as the key and a list of properties as values.
     """
-    results = []
+    restypes = {}
+    for take2 in [Email,Web,Address,Mobile,Link,Other]:
+        restypes[take2.class_name().lower()] = []
+
+    q_obj = Take2.all()
+    q_obj.filter("contact =", contact)
+    q_obj.order('-timestamp')
     for obj in q_obj:
+        if obj.privacy == "private" and not include_private_objects:
+            continue
+        # do only enclose non-attic take2 properties unless attic parameter is set
+        if obj.attic and not include_attic:
+            continue
         res = {}
         res['key'] = str(obj.key())
         res['type'] = obj.class_name().lower()
@@ -36,16 +49,16 @@ def encodeTake2(q_obj, attic=False):
             res['nickname'] = obj.nickname
             res['link_to'] = str(obj.link_to.key())
         elif obj.class_name() == "Address":
-            res['location_lat'] = obj.location.lat
-            res['location_lon'] = obj.location.lon
+            if obj.location:
+                res['location_lat'] = obj.location.lat
+                res['location_lon'] = obj.location.lon
             res['adr'] = obj.adr
             if obj.landline_phone:
                 res['landline_phone'] = obj.landline_phone
-            res['country'] = obj.country.country
-            if obj.barrio:
-                res['barrio'] = obj.barrio
-            if obj.town:
-                res['town'] = obj.town
+            if obj.country:
+                res['country'] = obj.country.country
+            if obj.adr_zoom:
+                res['adr_zoom'] = obj.adr_zoom
         elif obj.class_name() == "Mobile":
             res['mobile'] = obj.mobile
         elif obj.class_name() == "Other":
@@ -53,26 +66,41 @@ def encodeTake2(q_obj, attic=False):
             res['text'] = obj.text
         else:
             assert True, "Invalid class name: %s" % obj.class_name()
-        results.append(res)
-    return results
+        restypes[obj.class_name().lower()].append(res)
+
+    return restypes
 
 
-def encodeContact(contact, attic=False):
-    """Encodes Contact data for export and returns a
-    python data structure of dictionaries and lists.
-    If attic=True, data will include the
-    complete history and also archived data.
+def encode_contact(contact, include_attic=False, signed_in=False, is_admin=False, me=None):
+    """Encodes Contact data for export and returns a python data structure of dictionaries and lists.
+
+    The function takes into account the access rights and encodes only elements
+    which the user is allowed to see.
+    me is set to the user's own database entry (or None if not logged in or not in the DB)
+    signed_in is set to True if the user is signed in
+    If attic=True, data will include the complete history and also archived data.
     """
     logging.debug("encode contact name: %s" % (contact.name))
     res = {}
-    res['key'] = str(contact.key())
+    # do only enclose non-attic contacts unless attic parameter is set
+    if contact.attic and not include_attic:
+        return {}
     res['name'] = contact.name
-    res['type'] = contact.class_name().lower()
-    if contact.owned_by:
-        res['owned_by'] = str(contact.owned_by.key())
-    else:
-        # if no value is filled, it's owned by itself
-        res['owned_by'] = str(contact.key())
+
+    if not signed_in:
+        # the name is all which anonymous users will see
+        return res
+
+    if contact.class_name() == "Person":
+        if contact.lastname:
+            res['lastname'] = contact.lastname
+
+    # In order to reveal more data, we must check if 'me' is allowed
+    # to see it.
+    visible = visible_contacts(me, include_attic)
+    if contact.key() not in visible and not is_admin:
+        return res
+
     if contact.class_name() == "Person":
         # google account
         if contact.user:
@@ -82,8 +110,6 @@ def encodeContact(contact, attic=False):
                     'federated_identity': contact.user.federated_identity(),
                     'federated_provider': contact.user.federated_provider()}
             res['user'] = user
-        if contact.lastname:
-            res['lastname'] = contact.lastname
         if contact.birthday.has_year() or contact.birthday.has_month() or contact.birthday.has_day():
             res['birthday'] = "%04d-%02d-%02d" % (contact.birthday.year,contact.birthday.month,contact.birthday.day)
     elif contact.class_name() == "Company":
@@ -91,16 +117,17 @@ def encodeContact(contact, attic=False):
         pass
     else:
         assert True, "Invalid class name: %s" % contact.class_name()
+    res['key'] = str(contact.key())
+    res['type'] = contact.class_name().lower()
+    if contact.owned_by:
+        res['owned_by'] = str(contact.owned_by.key())
 
-    # now encode the contact's address, email etc.
-    for take2 in [Email,Web,Address,Mobile,Link,Other]:
-        q_obj = take2.all()
-        q_obj.filter("contact =", contact.key())
-        q_obj.order('-timestamp')
-        # takes care of the different take2 object structures
-        objs = encodeTake2(q_obj, attic)
-        if objs:
-            res[take2.class_name().lower()] = objs
+    # takes care of the different take2 object structures
+    if contact.owned_by == me or is_admin:
+        include_private_objects=True
+    else:
+        include_private_objects=False
+    res.update(encode_take2(contact, include_private_objects, include_attic))
 
     return res
 
@@ -110,6 +137,7 @@ class Take2Export(webapp.RequestHandler):
 
     def get(self):
         user = users.get_current_user()
+
         format = self.request.get("format", "JSON")
 
         if format not in ['JSON','yaml']:
@@ -135,17 +163,15 @@ class Take2Export(webapp.RequestHandler):
         if users.is_current_user_admin():
             q_con = Contact.all()
             for con in q_con:
-                contacts.append(encodeContact(con, attic))
+                contacts.append(encode_contact(con, include_attic=attic, signed_in=True, is_admin=True))
         else:
-            q_us = Contact.all()
-            q_us.filter("user =", user)
-            us = q_us.fetch(1)
-            if len(us) != 1:
-                logging.Critical("Found wrong # of user: %s [%s]" % (user.nickname(), ", ".join([u.name for u in us])))
-                self.error(500)
-                return
-            contacts.append(encodeContact(us[0], False))
+            # export everything this user can see
+            me = get_current_user_person(user)
+            for ckey in visible_contacts(me, include_attic=attic):
+                con = Contact.get(ckey)
+                contacts.append(encode_contact(con, include_attic=attic, me=me))
 
+        self.response.headers['Content-Disposition'] = "attachment; filename=address_export.json"
         if format == 'JSON':
             self.response.headers['Content-Type'] = "text/json"
             self.response.out.write(json.dumps(contacts,indent=2))
@@ -158,7 +184,12 @@ class Take2SelectImportFile(webapp.RequestHandler):
 
     def get(self):
         user = users.get_current_user()
-        template_values = getCurrentUserTemplateValues(user,self.request.uri)
+        template_values = get_current_user_template_values(user,self.request.uri)
+
+        # not logged in
+        if not user:
+            self.redirect(users.create_login_url(self.request.uri))
+            return
 
         path = os.path.join(os.path.dirname(__file__), "take2import_file.html")
         self.response.out.write(template.render(path, template_values))
@@ -168,6 +199,8 @@ class Take2Import(webapp.RequestHandler):
 
     def post(self):
         user = users.get_current_user()
+        template_values = get_current_user_template_values(user,self.request.uri)
+
         format = self.request.get("json", None)
         if not format:
             format = 'yaml'
@@ -176,14 +209,13 @@ class Take2Import(webapp.RequestHandler):
 
         # not logged in
         if not user:
-            self.redirect(users.create_login_url(self.request.uri))
+            self.redirect("/import")
             return
-
-        template_values = {'nickname': user.nickname()}
 
         # not an administrator
         if not users.is_current_user_admin():
-            path = os.path.join(os.path.dirname(__file__), 'sorrynoadmin.html')
+            template_values["sorry"]  = "You have to be administrator to import data."
+            path = os.path.join(os.path.dirname(__file__), 'take2sorry.html')
             self.response.out.write(template.render(path, template_values))
             return
 
@@ -213,6 +245,10 @@ class Take2Import(webapp.RequestHandler):
         new_contact_with_old_owned_by = []
         # list of contact objects
         for contact in dbdump:
+            logging.debug("Import type: %s name: %s id: %s attic: %s" % (contact['type'],
+                           contact['name'] if 'name' in contact else '<no name>',
+                           contact['id'] if 'id' in contact else '<no id>',
+                           contact['attic'] if 'attic' in contact else '<no attic flag>'))
             if contact['type'] == "person":
                 entry = Person(name=contact['name'])
                 if 'lastname' in contact:
@@ -220,6 +256,8 @@ class Take2Import(webapp.RequestHandler):
                 if 'birthday' in contact:
                     year,month,day = contact['birthday'].split('-')
                     entry.birthday = FuzzyDate(day=int(day),month=int(month),year=int(year))
+                if 'attic' in contact:
+                    entry.attic = contact['attic']
                 if 'user' in contact:
                     entry.user = users.User(email=contact['user']['email'],
                                   federated_identity=contact['user']['federated_identity'])
@@ -228,8 +266,9 @@ class Take2Import(webapp.RequestHandler):
             if contact['type'] == "company":
                 entry = Company(name=contact['name'])
                 entry.put()
+            if 'owned_by' in contact:
+                new_contact_with_old_owned_by.append((entry,contact['owned_by']))
 
-            new_contact_with_old_owned_by.append((entry,contact['owned_by']))
             # check for all take2 objects
             for take2 in [Email,Web,Address,Mobile,Link,Other]:
                 classname = take2.class_name().lower()
@@ -241,6 +280,8 @@ class Take2Import(webapp.RequestHandler):
                         if classname == 'email':
                             obj = Email(email=m['email'], contact=entry)
                         if classname == 'web':
+                            if not m['web'].startswith("http://"):
+                                m['web'] = 'http://'+m['web']
                             obj = Web(web=m['web'], contact=entry)
                         if classname == 'other':
                             obj = Other(what=m['what'], text=m['text'], contact=entry)
@@ -250,7 +291,7 @@ class Take2Import(webapp.RequestHandler):
                                 obj.location = db.GeoPt(lat=float(m['location_lat']),lon=float(m['location_lon']))
                             if 'landline_phone' in m:
                                 obj.landline_phone = m['landline_phone']
-                            if 'country' in m:
+                            if 'country' in m and m['country'] != "":
                                 country = Country.all().filter("country =", country).get()
                                 # If country name is not in DB it is added
                                 if not country:
@@ -259,12 +300,16 @@ class Take2Import(webapp.RequestHandler):
                                 obj.country = country.key()
                         if obj:
                             # timestamp and privacy fields are the same for all take2 objects
-                            dt,us= m['timestamp'].split(".")
-                            obj.timestamp = datetime.datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S")
-                            obj.privacy = m['privacy']
+                            if 'timestamp' in m:
+                                dt,us= m['timestamp'].split(".")
+                                obj.timestamp = datetime.datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S")
+                            if 'privacy' in m:
+                                obj.privacy = m['privacy']
+                            else:
+                                obj.privacy = 'restricted'
+                            if 'attic' in m:
+                                obj.attic = m['attic']
                             obj.put()
-
-            logging.debug("Added %s" % contact['name'])
 
         # Run over the contacts to resolve the owned_by references
         for contact,old_key in new_contact_with_old_owned_by:

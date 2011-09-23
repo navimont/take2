@@ -16,44 +16,9 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate
 from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
 from take2export import encodeContact
-from take2access import getCurrentUserPerson, getCurrentUserTemplateValues, MembershipRequired
+from take2access import MembershipRequired
 
-def encodeContactForWebpage(dump, contact, me):
-    """Revises some field in the db dump (a strcuture of lists and dictionaries)
-    so that the data can be used for the template renderer
-
-    dump: contact data dump used for webpage output
-    contact: db Contact class (a Person or Company instance)
-    me: Person class representing the logged in user
-    """
-    if contact.class_name() == "Person":
-        # birthdays are displayed without the year of birth
-        if 'birthday' in dump:
-            dump['birthday'] = "%d %s" % (contact.birthday.day,
-                                         calendar.month_name[contact.birthday.month])
-    # find the contact's relation to me (the person who is looged in)
-    dump['relation_to_me'] = None
-    if me:
-        if me.key() == contact.key():
-            dump['relation_to_me'] = "%s, that's you!" % (contact.name)
-        else:
-            # find my link to the contact
-            q_rel = Link.all()
-            q_rel.filter("contact =", me)
-            q_rel.filter("link_to =", contact)
-            rel = q_rel.fetch(1)
-            if len(rel) > 0:
-                assert len(rel) == 1, "too many links from: %s to: %s" % (str(me.key(),str(contact.key())))
-                rel = rel[0]
-                if contact.class_name() == "Person":
-                    dump['relation_to_me'] = "%s is your %s." % (contact.name,rel.link.lower())
-                else:
-                    dump['relation_to_me'] = "Your relation: %s" % (rel.link.lower())
-
-    return dump
-
-
-def saveTake2WithHistory(new,old):
+def save_take2_with_history(new,old):
     """Saves a new Take2 entity in the datastore. The new object
     replaces the old entity and we keep a history by leaving
     the old entity in the datastore but now pointing to the new one."""
@@ -63,90 +28,6 @@ def saveTake2WithHistory(new,old):
         if old:
             old.contact = new
             old.put()
-
-
-
-class Take2Search(webapp.RequestHandler):
-    """Run a search query over the current user's realm"""
-
-    def get(self):
-        user = users.get_current_user()
-        me = getCurrentUserPerson(user)
-        template_values = getCurrentUserTemplateValues(user,self.request.uri)
-
-        query = self.request.get('query',"")
-        contact_key = self.request.get('key',"")
-        if self.request.get('attic',"") == 'True':
-            archive = True
-        else:
-            archive = False
-
-        logging.debug("Search query: %s archive: %d key: %s " % (query,archive,contact_key))
-
-        result = []
-
-        #
-        # key is given
-        #
-
-        if contact_key:
-            contact = Contact.get(contact_key)
-            # this is basically a db dump
-            con = encodeContact(contact, attic=False)
-            # adjust fields and add extra fields for website renderer
-            con = encodeContactForWebpage(con, contact, me)
-            result.append(con)
-
-
-        #
-        # query search
-        #
-
-        if query:
-            q_res = []
-            query1 = query+u"\ufffd"
-            logging.debug("Search for %s >= name < %s" % (query,query1))
-            q_con = Contact.all()
-            q_con.filter("name >=", query).filter("name <", query1)
-            q_res.extend(q_con)
-            template_values['query'] = query
-
-            for contact in q_res:
-                con = encodeContact(contact, attic=False)
-                # adjust fields and add extra fields for website renderer
-                con = encodeContactForWebpage(con, contact, me)
-                result.append(con)
-
-        #
-        # birthday search
-        #
-        daterange_from = datetime.today() - timedelta(days=5)
-        daterange_to = datetime.today() + timedelta(days=14)
-        # Convert to fuzzydate. Year is not important
-        fuzzydate_from = FuzzyDate(day=daterange_from.day,
-                                  month=daterange_from.month)
-        fuzzydate_to = FuzzyDate(day=daterange_to.day,
-                                  month=daterange_to.month)
-        logging.debug("Birthday search from: %s to: %s" % (fuzzydate_from,fuzzydate_to))
-        q_bd = Person.all()
-        q_bd.filter("attic =", False)
-        q_bd.filter("birthday >", fuzzydate_from)
-        q_bd.filter("birthday <", fuzzydate_to)
-        # TODO take care of December/January turnover
-        template_values['birthdays'] = []
-        # TODO: Fix later!
-        if 0:
-            for person in q_bd:
-                # change birthday encoding from yyyy-mm-dd to dd Month
-                person['birthday'] = "%d %s" % (person.birthday.day,
-                                                person.month_name[person.birthday.month])
-                template_values['birthdays'].append(person)
-
-        # render administration page
-        template_values['result'] = result
-        path = os.path.join(os.path.dirname(__file__), 'take2search.html')
-        self.response.out.write(template.render(path, template_values))
-
 
 class ContactEdit(webapp.RequestHandler):
     """present a contact including old data (attic) for editing"""
@@ -415,7 +296,7 @@ class PersonSave(webapp.RequestHandler):
                          link=link_link,
                          link_to=contact)
 
-        db.run_in_transaction(saveTake2WithHistory, new=link1, old=link0)
+        db.run_in_transaction(save_take2_with_history, new=link1, old=link0)
 
         self.redirect('/editcontact?key=%s' % str(contact.key()))
 
@@ -475,7 +356,7 @@ class CompanySave(webapp.RequestHandler):
                          link=link_link,
                          link_to=company)
 
-        db.run_in_transaction(saveTake2WithHistory, new=link1, old=link0)
+        db.run_in_transaction(save_take2_with_history, new=link1, old=link0)
 
         self.redirect('/editcontact?key=%s' % str(company.key()))
 
@@ -528,8 +409,7 @@ class Take2Edit(webapp.RequestHandler):
                 template_values['lon'] = t2.location.lon
                 template_values['landline_phone'] = "" if not t2.landline_phone else t2.landline_phone
                 template_values['country'] = t2.country
-                template_values['town'] = "" if not t2.town else t2.town
-                template_values['barrio'] = "" if not t2.barrio else t2.barrio
+                template_values['zoominadr'] = ", ".join(t2.adr_zoom)
             else:
                 template_values['landlist'] = prepareListOfCountries()
         if instance == 'mobile':
@@ -628,8 +508,7 @@ class Take2Save(webapp.RequestHandler):
                 lon_raw = self.request.get("lon", "")
                 lon = 0.0 if len(lon_raw) == 0 else float(lon_raw)
                 adr = self.request.get("adr", "").split("\n")
-                town = self.request.get("town", "")
-                barrio = self.request.get("barrio", "")
+                town = self.request.get("adr_zoom", "").split(", ")
                 # quite some effort in order to allow an empty phone number!
                 phone = self.request.get("landline_phone", "").replace("None","")
                 if len(phone):
@@ -645,7 +524,7 @@ class Take2Save(webapp.RequestHandler):
                     obj1 = Address(parent=obj0,
                                   location=db.GeoPt(lon=lon, lat=lat), adr=adr,
                                   landline_phone=landline_phone, country=country_key,
-                                  town=town, barrio=barrio,
+                                  adr_zoom=adr_zoom,
                                   contact=contact.key())
             elif instance == 'mobile':
                 mobile = db.PhoneNumber(self.request.get("mobile", ""))
@@ -678,12 +557,11 @@ class Take2Save(webapp.RequestHandler):
             return
 
         # new and old objects will be saved/updated
-        db.run_in_transaction(saveTake2WithHistory, new=obj1,old=obj0)
+        db.run_in_transaction(save_take2_with_history, new=obj1,old=obj0)
 
         self.redirect('/editcontact?key=%s' % str(contact.key()))
 
-application = webapp.WSGIApplication([('/search.*', Take2Search),
-                                      ('/editcontact', ContactEdit),
+application = webapp.WSGIApplication([('/editcontact', ContactEdit),
                                       ('/newcompany', CompanyNew),
                                       ('/editcompany', CompanyEdit),
                                       ('/savecompany', CompanySave),

@@ -5,30 +5,35 @@ Search for address
 {% endblock %}
 
 {% block content %}
-    {% if errors %}
-        <ul>
-            {% for error in errors %}
-            <li style="color: red;">{{ error }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+  <div class="span-24 last">
+    <div class="span-6">
+        &nbsp;
+    </div>
+    <div class="span-12">
+        {% if not signed_in %}
+          <div class="span-12 last">
+            <p>If you are a new user, please log in (a google account will do).<p>
+          </div>
+        {% else %}
+          {% if birthdays %}
+            <div class="span-12 last">
+              <h2>Birthdays</h2>
+            </div>
+            <div class="span-12 last">
+              {% for person in birthdays %}
+                  {{ person.name }} ({{ person.nickname }}) *{{ person.birthday }}
+                  <br>
+              {% endfor %}
+            </div>
+          {% else %}
+             &nbsp;
+          {% endif %}
+        {% endif %}
+    </div>
+    <div class="span-6 last">
+        &nbsp;
+    </div>
 
-    {% if birthdays %}
-      <div class="span-12 prepend-6 last">
-        <h2>Birthdays</h2>
-      </div>
-      <div class="span-12 prepend-6 last">
-        {% for person in birthdays %}
-            <li>{{ person.name }} ({{ person.nickname }}) *{{ person.birthday }}</li>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    {% if query and not errors %}
-      <div class="span-12 prepend-6 last">
-        <h2>{{ result|length }} Results for "{{ query|escape }}":</h2>
-      </div>
-    {% endif %}
 
     <form name="editcontact" action="/editcontact" method="GET">
         <!-- hidden input field is used together with javascript to submit -->
@@ -36,84 +41,92 @@ Search for address
     </form>
 
     {% if result %}
+        <div class="span-6">
+            &nbsp;
+        </div>
+        <div class="span-12">
+          {% if signed_in %}
+            <div class="span-12 last">
+                <a class="button" href="javascript:void(0)" onClick="submitForm('newperson', 'new_');">Add new contact</a>
+            </div>
+          {% endif %}
+          {% if query %}
+            <div class="span-12 last">
+              <h2>{{ result|length }} Results for "{{ query|escape }}":</h2>
+            </div>
+          {% endif %}
+        </div>
+        <div class="span-6 last">
+            &nbsp;
+        </div>
       {% for contact in result %}
-          <table border="1" cols="2">
+        <div class="span-6">
+            &nbsp;
+        </div>
+        <div class="span-12">
+          <table>
             <tr>
-              <th class="span-6"/>
-              </th>
-              <th class="span-2">
-                <a class="button" href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_{{contact.key}}')";">Edit</a>
-              <th>
-              <th class="span-10 last">
+              <th class="span-8">
                 {{ contact.name }}
                 {% if contact.nickname %}
-                    ({{contact.nickname}})
+                    &nbsp;({{contact.nickname}})
                 {% endif %}
                 {{contact.lastname}}
                 {% if contact.birthday %}
-                    *{{contact.birthday}}
+                    &nbsp;*{{contact.birthday}}
+                {% endif %}
+                {% if contact.relation_to_me %}
+                    <br>{{contact.relation_to_me}}
                 {% endif %}
               </th>
+              <th class="span-4 last">
+                  {% if contact.can_edit %}
+                      <a class="button" href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_{{contact.key}}')";">Edit</a>
+                  {% endif %}
+                  {% if signed_in and not contact.myself %}
+                      <a class="button" href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_{{contact.key}}')";">Connect</a>
+                  {% endif %}
+                  &nbsp;
+                <th>
             </tr>
-            {% if contact.relation_to_me %}
-            <tr>
-              <td class="span-6"/>
-              </td>
-              <td class="span12 last">
-                {{contact.relation_to_me}}
-              </td>
-            </tr>
-            {% endif %}
             {% if contact.user %}
               <tr>
-                <td class="span-8"/>
-                </td>
-                <td class="span10 last">
+                <td class="span12 last">
                   Google account: {{contact.user.nickname}}
                 </td>
               </tr>
             {% endif %}
             {% for mobile in contact.mobile %}
               <tr>
-                <td class="span-8"/>
-                </td>
-                <td class="span10 last">
+                <td class="span12 last">
                   {{mobile.mobile}}
                 </td>
               </tr>
             {% endfor %}
             {% for email in contact.email %}
               <tr>
-                <td class="span-8"/>
-                </td>
-                <td class="span10 last">
+                <td class="span12 last">
                   {{email.email}}
                 </td>
               </tr>
             {% endfor %}
             {% for web in contact.web %}
               <tr>
-                <td class="span-8"/>
-                </td>
-                <td class="span10 last">
+                <td class="span12 last">
                   {{web.web}}
                 </td>
               </tr>
             {% endfor %}
             {% for other in contact.other %}
               <tr>
-                <td class="span-8"/>
-                </td>
-                <td class="span10 last">
+                <td class="span12 last">
                     {{other.what}}: {{other.text}}
                 </td>
               </tr>
             {% endfor %}
             {% for adr in contact.address %}
               <tr>
-                <td class="span-8"/>
-                </td>
-                <td class="span10 last">
+                <td class="span12 last">
                     {% for adr_line in adr.adr %}
                         <br>{{adr_line}}
                     {% endfor %}
@@ -125,24 +138,28 @@ Search for address
                 </tr>
             {% endfor %}
           </table>
-          <br>
-          <a class="button" href="javascript:void(0)" onClick="submitForm('newperson', 'new_');">New Person</a>
-          <a class="button" href="javascript:void(0)" onClick="submitForm('newcompany', 'new_');">New Institution</a>
-          <hr>
+        </div>
+        <div class="span-6 last">
+            &nbsp;
+        </div>
       {% endfor %}
     {% else %}
-          <hr>
-          <a class="button" href="javascript:void(0)" onClick="submitForm('newperson', 'new_');">New Person</a>
-          <a class="button" href="javascript:void(0)" onClick="submitForm('newcompany', 'new_');">New Institution</a>
+      {% if signed_in %}
+        <div class="span-6">
+            &nbsp;
+        </div>
+        <div class="span-12">
+          <p></p>
+          <p><a class="button" href="javascript:void(0)" onClick="submitForm('newperson', 'new_');">Enter your own contact information</a></p>
+        </div>
+        <div class="span-6 last">
+            &nbsp;
+        </div>
+      {% endif %}
     {% endif %}
 
-    <form name="newcompany" action="/newcompany" method="POST">
-        <!-- hidden input field is used together with javascript to submit -->
-        <input type="hidden" name="action" value="">
-    </form>
-
-    <form name="newperson" action="/newperson" method="POST">
+    <form name="newcontact" action="/newcontact" method="POST">
          <input type="hidden" name="action" value="">
     </form>
-
+  </div>
 {% endblock %}

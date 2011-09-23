@@ -18,16 +18,10 @@
                     if (error == "") {
                         document.getElementById('lat').value = geolatlon["lat"];
                         document.getElementById('lon').value = geolatlon["lon"];
-                        var barrio = geolatlon["barrio"];
-                        var town = geolatlon["town"];
-                        document.getElementById('barrio').value = barrio;
-                        document.getElementById('town').value = town;
+                        var zoom_adr = geolatlon["zoom_adr"];
+                        document.getElementById('zoom_adr').value = zoom_adr;
                         // formatting efforts
-                        if (town != "" && barrio != "") {
-                            document.getElementById('town_and_barrio').innerHTML = barrio+", "+town;
-                        } else {
-                            document.getElementById('town_and_barrio').innerHTML = barrio+town;
-                        }
+                        document.getElementById('zoom_adr_field').innerHTML = zoom_adr;
                     }
 
                     document.getElementById('globe').innerHTML = '<img src="static/spinning_globe0.gif">';
@@ -80,14 +74,9 @@
         <tr>
             <td><div id="globe"><img src="static/spinning_globe0.gif"></div></td>
             <td>
-                <input type="hidden" name="town" id="town" value="{{town}}" size="9" readonly>
-                <input type="hidden" name="barrio" id="barrio" value="{{barrio}}" size="9" readonly>
-                <div id="town_and_barrio">
-                {{barrio}}
-                {% if town and barrio %}
-                    ,&nbsp;
-                {% endif %}
-                {{town}}
+                <input type="hidden" name="zoom_adr" id="zoom_adr" value="{{zoom_adr}}" size="9" readonly>
+                <div id="zoom_adr_field">
+                {{zoom_adr}}
                 </div>
                 <br>
                 <input type="text" name="lat" id="lat" value="{{lat}}" size="9">

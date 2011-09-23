@@ -11,7 +11,7 @@ handlers:
   script: take2export.py
 
 - url: /search.*
-  script: take2edit.py
+  script: take2search.py
 
 - url: /(new.*|edit.*|save.*)
   script: take2edit.py

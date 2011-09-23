@@ -9,23 +9,23 @@ class FuzzyDate(object):
     """A date which allows unknown day/month or year left out
     from: http://code.google.com/appengine/articles/extending_models.html
     """
-    def __init__(self, year=0, month=0, day=0, ddmmyyyy=None):
+    def __init__(self, year=0, month=0, day=0, mmddyyyy=None):
         """Use constructor wither with tea, month day given
-        (or set to 0) or by assigning ddmmyyyy coded integer"""
-        if ddmmyyyy:
-            self.day = ddmmyyyy / 1000000
-            self.month = (ddmmyyyy / 10000) % 100
-            self.year = ddmmyyyy % 10000
+        (or set to 0) or by assigning mmddyyyy coded integer"""
+        if mmddyyyy:
+            self.month = mmddyyyy / 1000000
+            self.day = (mmddyyyy / 10000) % 100
+            self.year = mmddyyyy % 10000
         else:
             self.year = year
             self.month = month
             self.day = day
 
 
-    def to_ddmmyyy(self):
-        """return date as a ddmmyyyy coded integer
+    def to_int(self):
+        """return date as a coded integer
         for use in FuzzyDateProperty class"""
-        return (self.day * 1000000) + (self.month * 10000) + self.year
+        return (self.month * 1000000) + (self.day * 10000) + self.year
 
     def has_day(self):
         return self.day > 0
@@ -35,6 +35,15 @@ class FuzzyDate(object):
 
     def has_year(self):
         return self.year > 0
+
+    def get_day(self):
+        return self.day
+
+    def get_month(self):
+        return self.month
+
+    def get_year(self):
+        return self.year
 
     def __str__(self):
         return '%02d/%02d/%04d' % (self.day,self.month,self.year)
@@ -54,19 +63,18 @@ class FuzzyDateProperty(db.Property):
     def get_value_for_datastore(self, model_instance):
         date = super(FuzzyDateProperty,self).get_value_for_datastore(model_instance)
         # return (date.day * 1000000) + (date.month * 10000) + date.year
-        return date.to_ddmmyyy()
+        return date.to_int()
 
     # For reading from datastore.
     def make_value_from_datastore(self, value):
         if value is None:
             return None
-        return FuzzyDate(ddmmyyyy=value)
+        return FuzzyDate(mmddyyyy=value)
 
     def validate(self, value):
         if value is not None and not isinstance(value, FuzzyDate):
-            raise BadValueError('Property %s must be convertible '
-                                'to a FuzzyDate instance (%s)' %
-                                (self.name, value))
+            raise BadValueError('Property %s must be a FuzzyDate instance (%s)' % (self.name, value))
+        # call base class validate
         return super(FuzzyDateProperty, self).validate(value)
 
     def default_value(self):
@@ -145,8 +153,8 @@ class Address(Take2):
     landline_phone = db.PhoneNumberProperty(required=False)
     country = db.ReferenceProperty(Country)
     # those are filled by the address lookup (geocoding)
-    town = db.StringProperty()
-    barrio = db.StringProperty()
+    # and contain items like: [earth,USA,NY,Brooklyn,Fort Greene]
+    adr_zoom = db.StringListProperty()
 
 class Mobile(Take2):
     # mobile number
@@ -162,5 +170,5 @@ class Email(Take2):
 
 class Other(Take2):
     """Any other information"""
-    what = db.StringProperty(choices=settings.OTHER_TAGS)
+    what = db.StringProperty()
     text = db.StringProperty()
