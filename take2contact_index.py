@@ -173,7 +173,7 @@ class LookupNames(webapp.RequestHandler):
         res = []
 
         term = self.request.get('term',"")
-        queries = term.split(", ")
+        queries = term.split(" ")
 
         res = []
         for query in queries:

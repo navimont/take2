@@ -1,6 +1,7 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
+		<meta charset="utf-8"/>
     <meta http-equiv="content-type" content="text/html;charset=utf-8">
     <meta name="description" content="Linked Address Book"/>
     <!-- Opengraph.org tags -->
@@ -9,85 +10,13 @@
     <meta property="og:url" content="http://www.navimont.com/" />
     <meta property="og:site_name" content="" />
     <meta property="og:description" content=""/>
-    <title>{% block pagetitle %}{% endblock %}</title>
+    <!-- weschnitz browser tab icon -->
+    <!-- <link rel="shortcut icon" href=""> -->
+
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="static/blueprint/screen.css" type="text/css" media="screen, projection">
-    <link rel="stylesheet" href="static/blueprint/print.css" type="text/css" media="print">
-    <!--[if lt IE 8]>
-      <link rel="stylesheet" href="static/blueprint/ie.css" type="text/css" media="screen, projection">
-    <![endif]-->
-    <style type="text/css" media="screen">
-      .pagehead a:link {color: #0F150B; text-decoration:none;}
-      .pagehead a:visited {color: #26361C; text-decoration:none;}
-      .pagehead a:hover {text-decoration:underline;}
-      .pagehead a:active {text-decoration:underline;}
-      .logo {
-          padding-left: 10px;
-          font-size: 32px;
-      }
-      .pagehead {
-        background-color:#9db864;
-      }
-
-      body {background-color: #ebffb0;}
-
-      h1 {
-          font-size: 24px;
-          padding-left: 10px;
-          padding-top: 10px;
-      }
-
-      h2 {
-          font-size: 18px;
-          font-weight: bold;
-      }
-
-      h3 {
-          font-size: 12px;
-          font-weight: bold;
-      }
-
-      table.no-zebra tbody tr:nth-child(even) td,
-      table.no-zebra tbody tr.even td {
-        background: #ebffb0;
-      }
-
-      .property_header {
-        background-color: #9db864;
-        display: inline;
-      }
-
-      .property_header_text {
-          font-size: 12px;
-          color: #333333;
-          font-weight: bold;
-      }
-
-      .input_text {
-          width: 300px;
-      }
-
-      .formtag {
-          text-align: left;
-          padding-top: 10px;
-      }
-
-      .click_icon {
-          width: 30px;
-          height: 30px;
-      }
-
-      .button {
-          padding: 3px;
-          font-size: 18px;
-          color: #E6E6E6;
-          border: 1px solid #030303;
-          background-color: #26361C;
-      }
-      .content_body a:link {color: #E6E6E6; text-decoration:none;}
-      .content_body a:visited {color: #E6E6E6; text-decoration:none;}
-      .content_body a:hover {cursor: pointer; text-decoration:none;}
-    </style>
+		<link rel="stylesheet" media="all" href="static/take2.css"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>{% block pagetitle %}{% endblock %}</title>
 
     <!-- style sheet and sources for jquery autocomplete -->
     <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
@@ -120,37 +49,23 @@
               source: "/lookup"
               });
       });
-  </script>
+    </script>
   </head>
 
-  <body">
-    <div class="container">
-      <div id="pagehead" class="pagehead span-24 last">
-          <div class="span-6">
-            <div class="logo"><a name="home" href='/search'>Take2</a></div>
-          </div>
-          <form name="search" action="/search" method="GET">
-              <input type="hidden" value="search">
-              <div class="span-8"  style="padding-top: 9px">
-                  <input id="autocomplete" class="input_text" type="text" name="query" value="{{ query|escape }}">
-              </div>
-              <div class="span-2" style="padding-top: 18px">
-                  <input type="submit" value="Search">
-              </div>
-          </form>
-          <div class="span-8 last">
-            <div class="quiet" style="padding-right: 10px; text-align: right;">
-              <a href="{{loginout_url}}">{{loginout_text}}</a>
-            </div>
-          </div>
-      </div>
-
-      <span class="content_body">
-      {% block content %} {% endblock %}
-      </span>
-      <div id="footer" class="span-24">
-      </div>
-    </div>
+  <body lang="en">
+    <header id="masthead">
+      <nav>
+        <a href="{{loginout_url}}">{{loginout_text}}</a>
+      </nav>
+      <a class="gigantic" href="/search">Weschnitz</a>
+      <p class="bigger">Simply an online address book.</p>
+      <form name="search" action="/search" method="GET">
+          <input type="hidden" value="search">
+          <input id="autocomplete" type="text" name="query" value="{{ query|escape }}">
+          <input type="submit" value="Search">
+      </form>
+    </header>
+    {% block content %} {% endblock %}
   </body>
 </html>
 

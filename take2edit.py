@@ -129,12 +129,8 @@ class PersonNew(webapp.RequestHandler):
 
         template_values['link'] = None
 
-        # prepare drop down menu with preselected relation
-        relations = settings.PERSON_RELATIONS
-
         # all this stuff has to be in the form to have it ready if the
         # form has to be re-displayed after field error check (in PersonSave)
-        template_values['linklist'] = prepareListOfRelations(relations,template_values['link'])
         template_values['form_file'] = 'take2form_person.html'
         template_values['titlestr'] = "New personal contact for %s %s" % (person.name, person.lastname)
         template_values['instance'] = 'person'
@@ -191,8 +187,6 @@ class PersonSave(webapp.RequestHandler):
                 person.lastname = lastname=self.request.get("lastname", "")
                 person.birthday = FuzzyDate(day=day,month=month,year=year)
                 person.put()
-            if not self.request.get("linkselect", None) and not myself:
-                raise db.BadValueError('No relation selected')
         except db.BadValueError as error:
             template_values['errors'] = [error]
         except ValueError as error:
@@ -397,7 +391,7 @@ def prepareListOfCountries(selected=None):
     landlist = []
     for lc in Country.all():
         choice = {'country': lc.country}
-        if lc == selected:
+        if lc.country == selected:
             choice['selected'] = "selected"
         landlist.append(choice)
     return landlist
@@ -438,14 +432,14 @@ class Take2Edit(webapp.RequestHandler):
             titlestr = titlestr+" address"
             form_file = 'take2form_address.html'
             if action == 'edit':
-                template_values['landlist'] = prepareListOfCountries(t2.country)
+                template_values['landlist'] = prepareListOfCountries(t2.country.country)
                 template_values['adr'] = "\n".join(t2.adr)
                 if t2.location:
                     template_values['lat'] = t2.location.lat
                     template_values['lon'] = t2.location.lon
                 template_values['landline_phone'] = "" if not t2.landline_phone else t2.landline_phone
                 template_values['country'] = t2.country
-                template_values['zoominadr'] = ", ".join(t2.adr_zoom)
+                template_values['adr_zoom'] = ", ".join(t2.adr_zoom)
             else:
                 template_values['landlist'] = prepareListOfCountries()
         if instance == 'mobile':
@@ -546,7 +540,7 @@ class Take2Save(webapp.RequestHandler):
                 lon_raw = self.request.get("lon", "")
                 lon = 0.0 if len(lon_raw) == 0 else float(lon_raw)
                 adr = self.request.get("adr", "").split("\n")
-                adr_zoom = self.request.get("adr_zoom", "").split(", ")
+                adr_zoom = self.request.get("adr_zoom", "").split(",")
                 # quite some effort in order to allow an empty phone number!
                 phone = self.request.get("landline_phone", "").replace("None","")
                 if len(phone):
@@ -647,6 +641,12 @@ class Take2Deattic(webapp.RequestHandler):
 
         self.redirect('/editcontact?key=%s' % str(contact.key()))
 
+class Edittest(webapp.RequestHandler):
+    """Re-activate a property from archive"""
+
+    def get(self):
+        path = os.path.join(os.path.dirname(__file__), 'take2search1.html')
+        self.response.out.write(template.render(path, {}))
 
 
 application = webapp.WSGIApplication([('/editcontact', ContactEdit),
@@ -658,6 +658,7 @@ application = webapp.WSGIApplication([('/editcontact', ContactEdit),
                                       ('/saveperson', PersonSave),
                                       ('/atticcontact', ContactAttic),
                                       ('/deatticcontact', ContactDeattic),
+                                      ('/edittest', Edittest),
                                       ('/edit.*', Take2Edit),
                                       ('/save.*', Take2Save),
                                       ('/attic.*', Take2Attic),

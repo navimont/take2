@@ -55,11 +55,11 @@ def geocode_lookup(adr):
                     res['lon'] = res['lng']
                     del res['lng']
                     adr_zoom = []
-                    # zoom into address: earth, conutry, state, province etc.
+                    # zoom into address: earth, country, state, province etc.
                     for zoom in ['country','administrative_area_level_1','administrative_area_level_2','administrative_area_level_3','locality','neighborhood']:
                         for level in results[0]['address_components']:
                             if zoom in level['types']:
-                                adr_zoom.append(level['short_name'])
+                                adr_zoom.append(level['long_name'])
                     res['adr_zoom'] = adr_zoom
                     logging.debug("Found: %s" % (res))
                 else:
