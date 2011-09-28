@@ -10,18 +10,19 @@
                 if (georequest.status == 200) {
                     var reply = georequest.responseText;
                     var error = "";
+                    var geolatlon = {};
                     try {
-                      var geolatlon = JSON.parse(reply);
+                        geolatlon = JSON.parse(reply);
                     } catch (e) {
                         error = e;
                     }
-                    if (error == "") {
+                    if ( 'lat' in geolatlon ) {
                         document.getElementById('lat').value = geolatlon["lat"];
                         document.getElementById('lon').value = geolatlon["lon"];
-                        var zoom_adr = geolatlon["zoom_adr"];
-                        document.getElementById('zoom_adr').value = zoom_adr;
+                        var adr_zoom = geolatlon["adr_zoom"];
+                        document.getElementById('adr_zoom').value = adr_zoom;
                         // formatting efforts
-                        document.getElementById('zoom_adr_field').innerHTML = zoom_adr;
+                        document.getElementById('adr_zoom_field').innerHTML = adr_zoom;
                     }
 
                     document.getElementById('globe').innerHTML = '<img src="static/spinning_globe0.gif">';
@@ -33,10 +34,10 @@
         }
 
         function getlatlon() {
-            var adr=document.forms[0].adr.value;
+            var adr = document.getElementById("adr_text").value;
             // replace newlines by " "
             adr = adr.replace("\n"," ")
-            var country=document.forms[0].country.value;
+            var country = document.getElementById("country_text").value;
             var url="/geo?adr="+adr+"+"+country;
             // spinning
             document.getElementById('globe').innerHTML = '<img src="static/spinning_globe1.gif">';
@@ -49,16 +50,16 @@
 
     </script>
 
-    <table>
+    <table class="no-zebra">
         <tr>
-            <td id="formtag">Address</td>
-            <td><textarea name="adr" cols="20" rows="5">{{adr}}</textarea></td>
-            <td id="formhint"></td>
+            <td width="20%" id="formtag">Address</td>
+            <td width="50%"><textarea id="adr_text" name="adr">{{adr}}</textarea></td>
+            <td width="30%" id="formhint"></td>
         </tr>
         <tr>
             <td id="formtag"></td>
             <td>
-                <select name="country" size="1">
+                <select id="country_text" name="country" size="1">
                     {% for land in landlist %}
                     <option {{land.selected}} value="{{land.country}}">{{land.country}}</option>
                     {% endfor %}
@@ -74,15 +75,15 @@
         <tr>
             <td><div id="globe"><img src="static/spinning_globe0.gif"></div></td>
             <td>
-                <input type="hidden" name="zoom_adr" id="zoom_adr" value="{{zoom_adr}}" size="9" readonly>
-                <div id="zoom_adr_field">
-                {{zoom_adr}}
+                <input type="hidden" name="adr_zoom" id="adr_zoom" value="{{adr_zoom}}" size="9" readonly>
+                <div id="adr_zoom_field">
+                {{adr_zoom}}
                 </div>
                 <br>
                 <input type="text" name="lat" id="lat" value="{{lat}}" size="9">
                 <input type="text" name="lon" id="lon" value="{{lon}}" size="9">
             </td>
-            <td id="button"><a href="javascript:void(0)" onClick="getlatlon()">Lookup coordinates</a></td>
+            <td><a class="button" href="javascript:void(0)" onClick="getlatlon()">Lookup coordinates</a></td>
         </tr>
     </table>
 {% endblock %}

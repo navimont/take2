@@ -7,47 +7,48 @@
 {% endblock %}
 
 {% block content %}
+    <script type="text/javascript">
+        $(document).ready(function() {
+
+          // make attic entries disappear
+          $('tr.attic-mobile').hide();
+          $('div.attic-mobile-click').click(function(){
+              $('tr.attic-mobile').toggle();
+          });
+          $('tr.attic-email').hide();
+          $('div.attic-email-click').click(function(){
+              $('tr.attic-email').toggle();
+          });
+          $('tr.attic-web').hide();
+          $('div.attic-web-click').click(function(){
+              $('tr.attic-web').toggle();
+          });
+          $('tr.attic-other').hide();
+          $('div.attic-other-click').click(function(){
+              $('tr.attic-other').toggle();
+          });
+          $('tr.attic-address').hide();
+          $('div.attic-address-click').click(function(){
+              $('tr.attic-address').toggle();
+          });
+        });
+    </script>
+
     {% if errors %}
         {% for error in errors %}
             <div class="error">{{ error }}</div>
         {% endfor %}
     {% endif %}
 
-    <script type="text/javascript">
-      function submitForm(name, action) {
-        document.forms[name].action.value = action;
-        document.forms[name].submit();
-      }
-    </script>
-
-    <form name="editcompany" action="/editcompany" method="POST">
-        <!-- hidden input field is used together with javascript to submit -->
-        <input type="hidden" name="action" value="">
-    </form>
-
-    <form name="editperson" action="/editperson" method="POST">
-         <input type="hidden" name="action" value="">
-    </form>
-
-    <form name="newcompany" action="/newcompany" method="POST">
-        <input type="hidden" name="action" value="">
-    </form>
-
-    <form name="newperson" action="/newperson" method="POST">
-         <input type="hidden" name="action" value="">
-    </form>
-
-    <form name="edit" action="/edit" method="POST">
-       <input type="hidden" name="action" value="">
-    </form>
-
     <div class="span-6">
         &nbsp;
     </div>
-    <div class="span-12">
-    <table>
+    <div class="span-18 last">
+    <table class="no-zebra">
       <tr>
-        <th>{{ contact.name }}
+        <td width="75%">
+          <h2>
+            {{ contact.name }}
             {% if contact.nickname %}
                 ({{contact.nickname}})
             {% endif %}
@@ -55,121 +56,219 @@
             {% if contact.birthday %}
                 *{{contact.birthday}}
             {% endif %}
-        </th>
-        <th>
-            {% if contact.attic %}
-                <a class="button" href="javascript:void(0)" onClick="submitForm('editperson', 'deattic_{{contact.key}}')";">De-Attic</a>
-            {% else %}
-                <a class="button" href="javascript:void(0)" onClick="submitForm('editperson', 'attic_{{contact.key}}')";">Attic</a>
+          </h2>
+        </td>
+        <td width="25%">
+            {% if contact.can_edit %}
+                {% if contact.type == 'person' %}
+                    <a class="button" href="javascript:void(0)" onClick="post_to_url('editperson', {'key': '{{contact.key}}'});">Edit</a>
+                {% else %}
+                    <a class="button" href="javascript:void(0)" onClick="post_to_url('editcompany', {'key': '{{contact.key}}'});">Edit</a>
+                {% endif %}
             {% endif %}
-            <a class="button" href="javascript:void(0)" onClick="submitForm('editperson', 'edit_{{contact.key}}')";">Edit</a>
-        <th>
+            {% if contact.attic %}
+                <a class="button" href="javascript:void(0)" onClick="post_to_url('deatticcontact', {'key': '{{contact.key}}'});">De-Attic</a>
+            {% else %}
+                <a class="button" href="javascript:void(0)" onClick="post_to_url('atticcontact', {'key': '{{contact.key}}'});">Attic</a>
+            {% endif %}
+        <td>
       </tr>
       {% if contact.relation_to_me %}
       <tr>
-          <td colspan="2">
-              {{contact.relation_to_me}}
+          <td>
+              <strong>{{contact.relation_to_me}}</strong>
+          </td>
+          <td>
           </td>
       </tr>
       {% endif %}
       {% if contact.user %}
         <tr>
-            <td colspan="2">
-                Google account: {{contact.user.nickname}}
+            <td>
+                <em>Google account: {{contact.user.nickname}}</em>
             </td>
+            <td></td>
         </tr>
       {% endif %}
+      <tr class="property_header">
+          <td>
+              <!-- mobile phone -->
+              <div class="property_header">
+                  <a href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'mobile', 'key': '{{contact.key}}'});"><img src="static/icon-plus.png" class="property_header click_icon"></a>
+                  <a class="property_header property_header_text" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'mobile', 'key': '{{contact.key}}'});">&nbsp;Add mobile phone</a>
+              </div>
+              {% if contact.mobile_attic %}
+                  <div class="property_header attic-mobile-click">
+                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
+                      <a class="property_header property_header_text">&nbsp;Show/hide old phone numbers</a>
+                  </div>
+              {% endif %}
+          </td>
+          <td></td>
+      </tr>
       {% for mobile in contact.mobile %}
-        <tr>
-              <td>{{mobile.mobile}}</td>
-              <td>
-              {% if mobile.attic %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'deattic_mobile_{{mobile.key}}')";">De-Attic</a>
-              {% else %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'attic_mobile_{{mobile.key}}')";">Attic</a>
-              {% endif %}
-              <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'edit_mobile_{{mobile.key}}')";">Edit</a>
-              </td>
-          </tr>
+          {% if mobile.attic %}
+              <tr class="attic-mobile">
+          {% else %}
+              <tr class="current">
+          {% endif %}
+                  <td>{{mobile.mobile}}</td>
+                  <td>
+                      <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'mobile', 'key': '{{mobile.key}}' });">Edit</a>
+                      {% if mobile.attic %}
+                          <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'mobile', 'key': '{{mobile.key}}' } );">Undelete</a>
+                      {% else %}
+                          <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'mobile', 'key': '{{mobile.key}}'});">Delete</a>
+                      {% endif %}
+                  </td>
+              </tr>
       {% endfor %}
+      <tr class="property_header">
+          <td>
+              <!-- email -->
+              <div class="property_header add-email-click">
+                  <a href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'email', 'key': '{{contact.key}}'});"><img src="static/icon-plus.png" class="property_header click_icon"></a>
+                  <a class="property_header property_header_text" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'email', 'key': '{{contact.key}}'});">&nbsp;Add email address</a>
+              </div>
+              {% if contact.email_attic %}
+                  <div class="property_header attic-email-click">
+                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
+                      <a class="property_header property_header_text">&nbsp;Show/hide old email addresses</a>
+                  </div>
+              {% endif %}
+          </td>
+          <td></td>
+      </tr>
       {% for email in contact.email %}
-        <tr>
-              <td>{{email.email}}</td>
-              <td>
-              {% if email.attic %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'deattic_email_{{email.key}}')";">De-Attic</a>
-              {% else %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'attic_email_{{email.key}}')";">Attic</a>
-              {% endif %}
-              <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'edit_email_{{email.key}}')";">Edit</a>
-              </td>
-          </tr>
+          {% if email.attic %}
+              <tr class="attic-email">
+          {% else %}
+              <tr class="current">
+          {% endif %}
+                  <td>{{email.email}}</td>
+                  <td>
+                      <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'email', 'key': '{{email.key}}' });">Edit</a>
+                      {% if email.attic %}
+                          <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'email', 'key': '{{email.key}}' } );">Undelete</a>
+                      {% else %}
+                          <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'email', 'key': '{{email.key}}'});">Delete</a>
+                      {% endif %}
+                  </td>
+              </tr>
       {% endfor %}
+      <tr class="property_header">
+          <td>
+              <!-- web site -->
+              <div class="property_header add-web-click">
+                  <a href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'web', 'key': '{{contact.key}}'});"><img src="static/icon-plus.png" class="property_header click_icon"></a>
+                  <a class="property_header property_header_text" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'web', 'key': '{{contact.key}}'});">&nbsp;Add web address</a>
+              </div>
+              {% if contact.web_attic %}
+                  <div class="property_header attic-web-click">
+                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
+                      <a class="property_header property_header_text">&nbsp;Show/hide old web sites</a>
+                  </div>
+              {% endif %}
+          </td>
+          <td></td>
+      </tr>
       {% for web in contact.web %}
-        <tr>
-              <td>{{web.web}}</td>
-              <td>
-              {% if web.attic %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'deattic_web_{{web.key}}')";">De-Attic</a>
-              {% else %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'attic_web_{{web.key}}')";">Attic</a>
-              {% endif %}
-              <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'edit_web_{{web.key}}')";">Edit</a>
-              </td>
-          </tr>
+          {% if web.attic %}
+              <tr class="attic-web">
+          {% else %}
+              <tr class="current">
+          {% endif %}
+                  <td>{{web.web}}</td>
+                  <td>
+                      <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'web', 'key': '{{web.key}}' });">Edit</a>
+                      {% if web.attic %}
+                          <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'web', 'key': '{{web.key}}' } );">Undelete</a>
+                      {% else %}
+                          <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'web', 'key': '{{web.key}}'});">Delete</a>
+                      {% endif %}
+                  </td>
+              </tr>
       {% endfor %}
-      {% for other in contact.other %}
-        <tr>
-              <td>{{other.what}}: {{other.text}}</td>
-              <td>
-              {% if other.attic %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'deattic_other_{{other.key}}')";">De-Attic</a>
-              {% else %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'attic_other_{{other.key}}')";">Attic</a>
+      <tr class="property_header">
+          <td>
+              <!-- Address -->
+              <div class="property_header add-address-click">
+                  <a href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'address', 'key': '{{contact.key}}'});"><img src="static/icon-plus.png" class="property_header click_icon"></a>
+                  <a class="property_header property_header_text" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'address', 'key': '{{contact.key}}'});">&nbsp;Add address</a>
+              </div>
+              {% if contact.address_attic %}
+                  <div class="property_header attic-address-click">
+                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
+                      <a class="property_header property_header_text">&nbsp;Show/hide old addresses</a>
+                  </div>
               {% endif %}
-              <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'edit_other_{{other.key}}')";">Edit</a>
-              </td>
-          </tr>
-      {% endfor %}
-      {% for adr in contact.address %}
-        <tr>
+          </td>
+          <td></td>
+      </tr>
+      {% for address in contact.address %}
+          {% if address.attic %}
+              <tr class="attic-address">
+          {% else %}
+              <tr class="current">
+          {% endif %}
               <td>
-              {% for adr_line in adr.adr %}
+              {% for adr_line in address.adr %}
                   <br>{{adr_line}}
               {% endfor %}
-              <p>{{adr.country}}
-              {% if adr.landline_phone %}
-                  <p>phone: {{adr.landline_phone}}
+              <p>{{address.country}}
+              {% if address.landline_phone %}
+                  <p>phone: {{address.landline_phone}}
+              {% endif %}
+              {% if address.adr_zoom %}
+                  <p>
+                  {% for place in address.adr_zoom %}
+                      <em>{{ place }}&nbsp;</em>
+                  {% endfor %}
               {% endif %}
               </td>
               <td>
-              {% if web.attic %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'deattic_address_{{adr.key}}')";">De-Attic</a>
-              {% else %}
-                  <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'attic_address_{{adr.key}}')";">Attic</a>
-              {% endif %}
-              <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'edit_address_{{adr.key}}')";">Edit</a>
+                  <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'address', 'key': '{{address.key}}' });">Edit</a>
+                  {% if address.attic %}
+                      <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'address', 'key': '{{address.key}}' } );">Undelete</a>
+                  {% else %}
+                      <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'address', 'key': '{{address.key}}'});">Delete</a>
+                  {% endif %}
               </td>
           </tr>
       {% endfor %}
+      <tr class="property_header">
+          <td>
+              <!-- other -->
+              <div class="property_header add-other-click">
+                  <a href="javascript:void(0)"><img src="static/icon-plus.png" class="property_header click_icon"></a>
+                  <a class="property_header property_header_text">&nbsp;Add miscellaneous info</a>
+              </div>
+              {% if contact.other_attic %}
+                  <div class="property_header attic-other-click">
+                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
+                      <a class="property_header property_header_text">&nbsp;Show/hide old stuff</a>
+                  </div>
+              {% endif %}
+          </td>
+          <td></td>
+      </tr>
+      {% for other in contact.other %}
+          {% if other.attic %}
+              <tr class="attic-other">
+          {% else %}
+              <tr class="current">
+          {% endif %}
+                  <td>{{other.what}}: {{other.text}}</td>
+                  <td>
+                      <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'other', 'key': '{{other.key}}' });">Edit</a>
+                      {% if other.attic %}
+                          <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'other', 'key': '{{other.key}}' } );">Undelete</a>
+                      {% else %}
+                          <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'other', 'key': '{{other.key}}'});">Delete</a>
+                      {% endif %}
+                  </td>
+              </tr>
+      {% endfor %}
     </table>
-    </div>
-    <div class="span-6 last">
-        &nbsp;
-    </div>
-    <div class="span-24">
-        <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'new_mobile_{{contact.key}}')";">Add Mobile Phone</a>
-        <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'new_email_{{contact.key}}')";">Add Email</a>
-        <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'new_web_{{contact.key}}')";">Add Website</a>
-        <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'new_address_{{contact.key}}')";">Add Address</a>
-        <a class="button" href="javascript:void(0)" onClick="submitForm('edit', 'new_other_{{contact.key}}')";">Add Info</a>
-    </div>
-    <hr>
-    <div class="span-24">
-        <a class="button" href="javascript:void(0)" onClick="submitForm('newperson', '{{contact.key}}');">Add personal contact for {{contact.name}} {{contact.lastname}}</a>
-    </div>
-    <hr>
-    <div class="span-24">
-        <a class="button" href="javascript:void(0)" onClick="submitForm('newcompany', '{{contact.key}}');">Add institutional contact for {{contact.name}} {{contact.lastname}}</a>
     </div>
 {% endblock %}

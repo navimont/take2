@@ -10,6 +10,64 @@ from google.appengine.ext import db
 from google.appengine.api.urlfetch import fetch
 from take2dbm import Address
 
+def geocode_lookup(adr):
+    """performs a geo lookup for the given address
+
+    adr is an address string including the country
+    returns a datastructure containing lat, lon and
+    a adr_zoom element which features a list of administrative
+    entities for the address, such as:
+    USA, NY, New York, Brooklyn, Fort Greene
+    """
+
+    # replace all line brakes and spaces in address with +
+    adr = adr.replace(" ","+")
+    # use geocoding api
+    uri = "%s?address=%s&sensor=false" % (settings.GOOGLE_GEOCODING_URI,adr)
+    logging.debug("Fetching URI: %s" % (uri))
+
+    res = {}
+    try:
+        georaw = fetch(uri, method="GET")
+    except DownloadError:
+        logging.error("Connection error (timeout)")
+        res['error'] = "CONNECTION_ERROR"
+    else:
+        if georaw.status_code != 200:
+            logging.error("Request failed. Status: %s" % georaw.status_code)
+            res['error'] = "REQUEST_ERROR"
+        else:
+            try:
+                geo = json.loads(georaw.content)
+            except TypeError as err:
+                logging.error("JSON decoder error: %s" % err)
+                res['error'] = "DECODING_TYPE_ERROR"
+            except ValueError as err:
+                logging.error("JSON decoder error: %s" % err)
+                res['error'] = "DECODING_VALUE_ERROR"
+            else:
+                if geo['status'] == "OK":
+                    # return only lat, lon and neighborhood
+                    results = geo['results']
+                    if len(results) > 1:
+                        logging.warning ("Geoencoding delivered %d results. Taking the first." % len(results))
+                    res = results[0]['geometry']['location']
+                    res['lon'] = res['lng']
+                    del res['lng']
+                    adr_zoom = []
+                    # zoom into address: earth, conutry, state, province etc.
+                    for zoom in ['country','administrative_area_level_1','administrative_area_level_2','administrative_area_level_3','locality','neighborhood']:
+                        for level in results[0]['address_components']:
+                            if zoom in level['types']:
+                                adr_zoom.append(level['short_name'])
+                    res['adr_zoom'] = adr_zoom
+                    logging.debug("Found: %s" % (res))
+                else:
+                    logging.error("bad return status: %s" % (geo['status']))
+                    res['error'] = geo['status']
+    return res
+
+
 class Geocode(webapp.RequestHandler):
     """Return coordinates and neighborhood for a given address"""
 
@@ -20,50 +78,7 @@ class Geocode(webapp.RequestHandler):
             logging.error("no address parameter")
             res = "NO_KEY"
         else:
-            # replace all line brakes and spaces in address with +
-            adr = adr.replace(" ","+")
-            # use geocoding api
-            uri = "%s?address=%s&sensor=false" % (settings.GEOCODING_URI,adr)
-            logging.debug("Fetching URI: %s" % (uri))
-            try:
-                georaw = fetch(uri, method="GET")
-            except DownloadError:
-                logging.error("Connection error (timeout)")
-                res = "CONNECTION_ERROR"
-            else:
-                if georaw.status_code != 200:
-                    logging.error("Request failed. Status: %s" % georaw.status_code)
-                    res = "REQUEST_ERROR"
-                else:
-                    try:
-                        geo = json.loads(georaw.content)
-                    except TypeError as err:
-                        logging.error("JSON decoder error: %s" % err)
-                        res = "DECODING_TYPE_ERROR"
-                    except ValueError as err:
-                        logging.error("JSON decoder error: %s" % err)
-                        res = "DECODING_VALUE_ERROR"
-                    else:
-                        if geo['status'] == "OK":
-                            # return only lat, lon and neighborhood
-                            results = geo['results']
-                            if len(results) > 1:
-                                logging.warning ("Geoencoding delivered %d results. Taking the first." % len(results))
-                            res = results[0]['geometry']['location']
-                            res['lon'] = res['lng']
-                            del res['lng']
-                            res['town'] = ""
-                            res['barrio'] = ""
-                            for adr in results[0]['address_components']:
-                                if "neighborhood" in adr['types']:
-                                    res['barrio'] = adr['short_name']
-                                if "locality" in adr['types']:
-                                    res['town'] = adr['short_name']
-                            res = json.dumps(res)
-                            logging.debug("Found: %s" % (res))
-                        else:
-                            logging.error("bad return status: %s" % (geo['status']))
-                            res = geo['status']
+            res = json.dumps(geocode_lookup(adr))
 
         self.response.headers['Content-Type'] = 'text/plain'
         self.response.out.write(res)

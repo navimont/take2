@@ -13,7 +13,10 @@ handlers:
 - url: /search.*
   script: take2search.py
 
-- url: /(new.*|edit.*|save.*)
+- url: /(index|lookup)
+  script: take2contact_index.py
+
+- url: /(new.*|edit.*|save.*|attic.*|deattic.*)
   script: take2edit.py
   login: required
 

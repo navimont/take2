@@ -5,7 +5,7 @@
 
     <table>
         <tr>
-            <td id="formtag">First name</td>
+            <td id="formtag">First name(s)</td>
             <td><input name="firstname" type="text" value="{{firstname}}"></td>
             <td id="formhint"></td>
         <tr>
@@ -21,15 +21,11 @@
         <tr>
         {% if not myself %}
             </tr>
-                <td id="formtag">This person is my</td>
+                <td id="formtag">Who is this?</td>
                 <td>
-                    <select name="linkselect">
-                        {% for link in linklist %}
-                        <option {{link.selected}} value="{{link.link}}">{{link.link}}</option>
-                        {% endfor %}
-                    </select>
+                  <input name="link" type="text" value="{{link}}">
                 </td>
-                <td id="formhint">(select your relation)</td>
+                <td id="formhint">Please describe your relation to this person (why you know him/her, where you met etc.)</td>
             <tr>
         {% endif %}
         </tr>

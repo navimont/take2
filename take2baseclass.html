@@ -29,12 +29,38 @@
         background-color:#9db864;
       }
 
-      body {background-color:#ebffb0;}
+      body {background-color: #ebffb0;}
 
       h1 {
           font-size: 24px;
           padding-left: 10px;
           padding-top: 10px;
+      }
+
+      h2 {
+          font-size: 18px;
+          font-weight: bold;
+      }
+
+      h3 {
+          font-size: 12px;
+          font-weight: bold;
+      }
+
+      table.no-zebra tbody tr:nth-child(even) td,
+      table.no-zebra tbody tr.even td {
+        background: #ebffb0;
+      }
+
+      .property_header {
+        background-color: #9db864;
+        display: inline;
+      }
+
+      .property_header_text {
+          font-size: 12px;
+          color: #333333;
+          font-weight: bold;
       }
 
       .input_text {
@@ -44,6 +70,11 @@
       .formtag {
           text-align: left;
           padding-top: 10px;
+      }
+
+      .click_icon {
+          width: 30px;
+          height: 30px;
       }
 
       .button {
@@ -58,12 +89,38 @@
       .content_body a:hover {cursor: pointer; text-decoration:none;}
     </style>
 
+    <!-- style sheet and sources for jquery autocomplete -->
+    <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
     <script type="text/javascript">
-      function submitForm(name, action) {
-        document.forms[name].action.value = action;
-        document.forms[name].submit();
+      function post_to_url(path, params, method) {
+          method = method || "get";
+
+          var form = document.createElement("form");
+          form.setAttribute("method", method);
+          form.setAttribute("action", path);
+
+          for(var key in params) {
+              var hiddenField = document.createElement("input");
+              hiddenField.setAttribute("type", "hidden");
+              hiddenField.setAttribute("name", key);
+              hiddenField.setAttribute("value", params[key]);
+
+              form.appendChild(hiddenField);
+          }
+
+          document.body.appendChild(form);
+          form.submit();
       }
-    </script>
+
+      $(document).ready(function() {
+          // auto-complete for search box
+          $("input#autocomplete").autocomplete( {
+              source: "/lookup"
+              });
+      });
+  </script>
   </head>
 
   <body">
@@ -73,11 +130,12 @@
             <div class="logo"><a name="home" href='/search'>Take2</a></div>
           </div>
           <form name="search" action="/search" method="GET">
+              <input type="hidden" value="search">
               <div class="span-8"  style="padding-top: 9px">
-                  <input  class="input_text" type="text" name="query" value="{{ query|escape }}">
+                  <input id="autocomplete" class="input_text" type="text" name="query" value="{{ query|escape }}">
               </div>
               <div class="span-2" style="padding-top: 18px">
-                  <a href="javascript:void(0)" onClick="submitForm('search','search');">Search</a>
+                  <input type="submit" value="Search">
               </div>
           </form>
           <div class="span-8 last">

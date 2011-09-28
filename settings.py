@@ -2,22 +2,28 @@
 
 import os
 import logging
+from google.appengine.dist import use_library
 
 DEBUG = os.environ['SERVER_SOFTWARE'].startswith('Dev')
+
+# select lates Django library
+use_library('django', '1.2')
 
 LOG_LEVEL=logging.WARNING
 if DEBUG:
     LOG_LEVEL=logging.DEBUG
 
-# possible relations between real persons
-PERSON_RELATIONS = ["Wife","Husband","Girlfriend","Boyfriend","Partner","Friend","Colleague","Sister","Brother","Father","Mother","Son","Daughter","Parents"]
-# possible relations between real persons and institutions
-INSTITUTION_RELATIONS = ["Employee","Member","Client"]
-
-GEOCODING_URI = "http://maps.googleapis.com/maps/api/geocode/json"
+# turn to this URI to use the google geocoding service
+GOOGLE_GEOCODING_URI = "http://maps.googleapis.com/maps/api/geocode/json"
 
 # possible choices for field other
 OTHER_TAGS = ['Banc account','username/login']
+
+# provacy codes and their meaning
+PRIVACY = {0: "private", 1: "restricted", 2: "public"}
+
+# refresh time for contact index (in seconds)
+CONTACT_INDEX_REFRESH = 300
 
 COUNTRIES = [{"US":"United States"},
 {"CA":"Canada"},

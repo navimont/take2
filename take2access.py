@@ -7,6 +7,28 @@ from google.appengine.api import users
 from take2dbm import Person, Contact, Link
 from google.appengine.api import memcache
 
+
+def write_access(obj, me):
+    """Makes sure that me can edit the object
+
+    Logs violations.
+    Returns true if me has write access.
+    """
+
+    if not obj.class_name() in ['Person','Company']:
+        if obj.issubclass(Take2):
+            logging.critical("Unknown object type: %s" % obj.class_name())
+            return False
+        contact = obj.contact_ref
+    else:
+        contact = obj
+
+    if contact.owned_by.key() != me.key():
+        logging.critical("User %s %s cannot manipulate %s" % (contact.name, str(contact.key()),str(obj.key())))
+        return False
+
+    return True
+
 def get_current_user_person(user):
     """Find the person which represents the currently logged in user"""
     if not user:
@@ -21,7 +43,6 @@ def get_current_user_person(user):
             logging.error ("more than one person with google account: %s [%s]" % (user.nickname,user.user_id))
         me = me[0]
     else:
-        logging.debug ("found none")
         me = None
 
     return me
@@ -74,16 +95,23 @@ def MembershipRequired(target):
         return wrapper
 
 
-def visible_contacts(person, include_attic=False):
-    """Returns a set of keys of all contacts the person is allowed to see"""
+def visible_contacts(person, include_attic=False, refresh=False):
+    """Returns a set of keys of all contacts the person is allowed to see
+
+    If refresh is set, the lookup is done again, otherwise a cached
+    list may be returned.
+    """
 
     if not person:
         return []
 
     # check in memcache
-    visible = memcache.get(str(person.key))
-    if visible:
-        return visible
+    if not refresh:
+        visible = memcache.get(str(person.key()))
+        if visible:
+            return visible
+
+    logging.info("Updating access list for %s", person.name)
 
     #
     # 0. Include yourself
@@ -101,7 +129,7 @@ def visible_contacts(person, include_attic=False):
         visible.append(con.key())
 
     #
-    # 2. Can see all contacts person points to
+    # 2. Can see all contacts which point to this person
     #
 
     q_ln = Link.all()
@@ -109,22 +137,12 @@ def visible_contacts(person, include_attic=False):
         q_ln.filter("attic =", False)
     q_ln.filter("link_to =", person)
     q_ln.filter("privacy !=", "private")
-    for con in q_ln:
-        visible.append(con.key())
-
-        #
-        # 3. Can see all Contacts where contacts from 2) point to
-        #
-
-        q1_ln = Link.all()
-        if not include_attic:
-            q1_ln.filter("attic =", False)
-        q1_ln.filter("link_to =", con)
-        q1_ln.filter("privacy !=", "private")
-        for con1 in q1_ln:
-            visible.append(con.key())
+    for link in q_ln:
+        visible.append(link.contact_ref.key())
 
     visible = set(visible)
-    memcache.set(str(person.key), visible, time=500)
+    logging.debug([Contact.get(key).name for key in visible])
+    if not memcache.set(str(person.key()), visible, time=5000):
+        logging.Error("memcache failed for key: %s" % str(person.key()))
 
     return visible

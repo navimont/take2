@@ -1,23 +1,27 @@
-"""Take2 search and edit REST Api"""
+"""Take2 search REST Api
+
+Supports searches for Contacts
+Maintains a quick contact index table for simplified search and autocompletion
+"""
 
 import settings
 import logging
 import os
 import calendar
 from datetime import datetime, timedelta
-import yaml
-import json
 from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.ext import webapp
 from google.appengine.ext.db import Key
+from google.appengine.api import taskqueue
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import memcache
-from take2dbm import Contact, Person, Company, Take2, FuzzyDate
+from take2dbm import Contact, Person, Company, Take2, FuzzyDate, ContactIndex, PlainKey
 from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
 from take2export import encode_contact
 from take2access import get_current_user_person, get_current_user_template_values, MembershipRequired, visible_contacts
+from take2contact_index import plainify, lookup_contacts
 
 def encode_contact_for_webpage(dump, contact, me):
     """Revises some field in the db dump (a strcuture of lists and dictionaries)
@@ -35,25 +39,35 @@ def encode_contact_for_webpage(dump, contact, me):
     # find the contact's relation to me (the person who is looged in)
     dump['relation_to_me'] = None
     if me:
+        # if contact is owned by me, I can edit it
+        if contact.owned_by.key() == me.key():
+            dump['can_edit'] = True
+
+        # find my link to the contact, might be link to someoneself
+        # but this is needed for the nickname
+        q_rel = Link.all()
+        q_rel.filter("contact_ref =", me)
+        q_rel.filter("link_to =", contact)
+        rel = q_rel.fetch(1)
+        if len(rel) > 0:
+            assert len(rel) == 1, "too many links from: %s to: %s" % (str(me.key(),str(contact.key())))
+            rel = rel[0]
+            dump['relation_to_me'] = rel.link
+            if contact.class_name() == "Person":
+                dump['nickname'] = rel.nickname
+
         if me.key() == contact.key():
             dump['relation_to_me'] = "%s, that's you!" % (contact.name)
             dump['myself'] = True
-        else:
-            # find my link to the contact
-            q_rel = Link.all()
-            q_rel.filter("contact =", me)
-            q_rel.filter("link_to =", contact)
-            rel = q_rel.fetch(1)
-            if len(rel) > 0:
-                assert len(rel) == 1, "too many links from: %s to: %s" % (str(me.key(),str(contact.key())))
-                rel = rel[0]
-                if contact.class_name() == "Person":
-                    dump['relation_to_me'] = "%s is your %s." % (contact.name,rel.link.lower())
-                else:
-                    dump['relation_to_me'] = "Your relation: %s" % (rel.link.lower())
+
+    for instance in ['email','web','address','mobile','other']:
+        # add information whether a property has deleted (attic) elements
+        if instance in dump:
+            for t2 in dump[instance]:
+                if 'attic' in t2 and  t2['attic']:
+                    dump["%s_attic" % (instance)] = True
 
     return dump
-
 
 
 class Take2Search(webapp.RequestHandler):
@@ -74,6 +88,12 @@ class Take2Search(webapp.RequestHandler):
 
         logging.debug("Search query: %s archive: %d key: %s " % (query,archive,contact_key))
 
+        # Once in a while invoke task queue to refresh the index table
+        if not memcache.get('contact_index'):
+            memcache.set('contact_index', True, time=settings.CONTACT_INDEX_REFRESH)
+            # Add the task to the default queue.
+            taskqueue.add(url='/index')
+
         result = []
 
         #
@@ -93,16 +113,10 @@ class Take2Search(webapp.RequestHandler):
         #
 
         if query:
-            q_res = []
-            query1 = query+u"\ufffd"
-            logging.debug("Search for %s >= name < %s" % (query,query1))
-            q_con = Contact.all()
-            q_con.filter("attic =", False)
-            q_con.filter("name >=", query).filter("name <", query1)
-            q_res.extend(q_con)
+            cis = lookup_contacts(query, 100, first_call=True)
+            # TODO implement various pages for lng result lists
             template_values['query'] = query
-
-            for contact in q_res:
+            for contact in cis:
                 con = encode_contact(contact, include_attic=False, signed_in=signed_in, me=me)
                 # adjust fields and add extra fields for website renderer
                 con = encode_contact_for_webpage(con, contact, me)

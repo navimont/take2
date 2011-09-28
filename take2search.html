@@ -5,7 +5,7 @@ Search for address
 {% endblock %}
 
 {% block content %}
-  <div class="span-24 last">
+  <!-- Show birthdays for signed in users -->
     <div class="span-6">
         &nbsp;
     </div>
@@ -21,7 +21,7 @@ Search for address
             </div>
             <div class="span-12 last">
               {% for person in birthdays %}
-                  {{ person.name }} ({{ person.nickname }}) *{{ person.birthday }}
+                  {{ person.name }} {% if person.nickname %} ({{ person.nickname }}) {% endif %} *{{ person.birthday }}
                   <br>
               {% endfor %}
             </div>
@@ -31,25 +31,20 @@ Search for address
         {% endif %}
     </div>
     <div class="span-6 last">
+          {% if signed_in %}
+             <a class="button" href="javascript:void(0)" onClick="post_to_url('newperson', {});">Add new contact</a>
+          {% endif %}
         &nbsp;
     </div>
+    <div class="span-24 last">&nbsp;</div>
 
 
-    <form name="editcontact" action="/editcontact" method="GET">
-        <!-- hidden input field is used together with javascript to submit -->
-        <input type="hidden" name="action" value="">
-    </form>
 
     {% if result %}
         <div class="span-6">
             &nbsp;
         </div>
         <div class="span-12">
-          {% if signed_in %}
-            <div class="span-12 last">
-                <a class="button" href="javascript:void(0)" onClick="submitForm('newperson', 'new_');">Add new contact</a>
-            </div>
-          {% endif %}
           {% if query %}
             <div class="span-12 last">
               <h2>{{ result|length }} Results for "{{ query|escape }}":</h2>
@@ -57,16 +52,17 @@ Search for address
           {% endif %}
         </div>
         <div class="span-6 last">
-            &nbsp;
+          &nbsp;
         </div>
       {% for contact in result %}
+      <div class="span-24 last">
         <div class="span-6">
             &nbsp;
         </div>
         <div class="span-12">
-          <table>
+          <table class="no-zebra">
             <tr>
-              <th class="span-8">
+              <th class="span-12">
                 {{ contact.name }}
                 {% if contact.nickname %}
                     &nbsp;({{contact.nickname}})
@@ -79,15 +75,6 @@ Search for address
                     <br>{{contact.relation_to_me}}
                 {% endif %}
               </th>
-              <th class="span-4 last">
-                  {% if contact.can_edit %}
-                      <a class="button" href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_{{contact.key}}')";">Edit</a>
-                  {% endif %}
-                  {% if signed_in and not contact.myself %}
-                      <a class="button" href="javascript:void(0)" onClick="submitForm('editcontact', 'edit_{{contact.key}}')";">Connect</a>
-                  {% endif %}
-                  &nbsp;
-                <th>
             </tr>
             {% if contact.user %}
               <tr>
@@ -140,8 +127,17 @@ Search for address
           </table>
         </div>
         <div class="span-6 last">
+            {% if contact.can_edit %}
+                <a class="button" href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">Edit</a>
+            {% else %}
+                {% if signed_in and not contact.myself %}
+                    <a class="button" href="javascript:void(0)" onClick="post_to_url('connectcontact', {'key': '{{contact.key}}'});">Connect</a>
+                {% endif %}
+            {% endif %}
             &nbsp;
         </div>
+      </div>
+      <div class="span-24 last">&nbsp;</div>
       {% endfor %}
     {% else %}
       {% if signed_in %}
@@ -149,8 +145,9 @@ Search for address
             &nbsp;
         </div>
         <div class="span-12">
-          <p></p>
-          <p><a class="button" href="javascript:void(0)" onClick="submitForm('newperson', 'new_');">Enter your own contact information</a></p>
+          {% if query %}
+              <p><h2>Nothing found for {{ query|escape }}</h2></p>
+          {% endif %}
         </div>
         <div class="span-6 last">
             &nbsp;
@@ -161,5 +158,4 @@ Search for address
     <form name="newcontact" action="/newcontact" method="POST">
          <input type="hidden" name="action" value="">
     </form>
-  </div>
 {% endblock %}

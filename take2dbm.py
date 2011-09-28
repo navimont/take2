@@ -90,6 +90,8 @@ class Contact(polymodel.PolyModel):
     name = db.StringProperty(required=True)
     # archived
     attic = db.BooleanProperty(default=False)
+    # creation timestamp
+    timestamp = db.DateTimeProperty(auto_now=True)
     # points to the Person instance who owns (created)
     # an instance. May point to itself.
     owned_by = db.SelfReferenceProperty(collection_name="owns_contacts")
@@ -110,32 +112,28 @@ class Take2(polymodel.PolyModel):
     """Base class for a contact's data.
     A history of data is stored by never updating
     a Take2 derived data class. Instead, when data is
-    updated, a new instance is created. The last
-    entity points to he contact. The one which was just
-    replaced, points to the new data entity.
+    updated, a new instance is created. The latest
+    entity points to the contact. The one which was just
+    replaced, points to the newly created take2 instance.
     """
     # Reference to a Person or a Company or to a
     # newer version of this entity.
-    contact = db.ReferenceProperty(reference_class=None, required=True)
+    contact_ref = db.ReferenceProperty(reference_class=None, required=True)
     # creation timestamp
     timestamp = db.DateTimeProperty(auto_now=True)
     # Determines whether orther people can see this property
-    # private: Only the creator can see it
-    # restricted: People whom the creator trusts can see it
-    # open: The whole world can see it
-    privacy = db.StringProperty(choices=["private","restricted","public"], default="restricted")
+    # 0: private - Only the creator can see it
+    # 1: restricted - People whom the creator trusts can see it
+    # 2: open - The whole world can see it
+    privacy = db.IntegerProperty(choices=settings.PRIVACY.keys(), default=1)
     # archived
     attic = db.BooleanProperty(default=False)
 
 class Link(Take2):
     """Links between Persons/Contacts
-    This elements exists always twice for every link
-    such as Bob can have another 'link' to Alice as vice versa
-    Bob ---'friend'---> Alice
-    Alice ---'colleague'---> Bob
     """
     nickname = db.StringProperty()
-    link = db.StringProperty(choices=settings.PERSON_RELATIONS+settings.INSTITUTION_RELATIONS)
+    link = db.StringProperty()
     link_to = db.ReferenceProperty(Contact, required=True)
 
 class Country(db.Model):
@@ -170,5 +168,24 @@ class Email(Take2):
 
 class Other(Take2):
     """Any other information"""
+    # description
     what = db.StringProperty()
+    # content
     text = db.StringProperty()
+
+
+class PlainKey(db.Model):
+    """An index for quick search in names, last names, nicknames and places
+
+    Entries in this index are all lower case and they do not accents or special
+    characters.
+    """
+    plain_key = db.StringProperty()
+
+class ContactIndex(db.Model):
+    """Is used to connect entries in the Lookup class with Person or Company entities"""
+
+    plain_key_ref = db.ReferenceProperty(PlainKey)
+    contact_ref = db.ReferenceProperty(Contact)
+
+
