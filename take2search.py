@@ -20,16 +20,15 @@ from google.appengine.api import memcache
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate, ContactIndex, PlainKey
 from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
 from take2export import encode_contact
-from take2access import get_current_user_person, get_current_user_template_values, MembershipRequired, visible_contacts
-from take2contact_index import plainify, lookup_contacts
+from take2access import get_login_user, get_current_user_template_values, MembershipRequired, visible_contacts
+from take2contact_index import lookup_contacts
 
-def encode_contact_for_webpage(dump, contact, me):
+def encode_contact_for_webpage(dump, contact, login_user):
     """Revises some field in the db dump (a strcuture of lists and dictionaries)
     so that the data can be used for the template renderer
 
     dump: contact data dump used for webpage output
     contact: db Contact class (a Person or Company instance)
-    me: Person class representing the logged in user
     """
     if contact.class_name() == "Person":
         # birthdays are displayed without the year of birth
@@ -38,34 +37,41 @@ def encode_contact_for_webpage(dump, contact, me):
                                          calendar.month_name[contact.birthday.month])
     # find the contact's relation to me (the person who is looged in)
     dump['relation_to_me'] = None
-    if me:
+    if login_user and login_user.me:
         # if contact is owned by me, I can edit it
-        if contact.owned_by.key() == me.key():
+        if contact.owned_by.key() == login_user.key():
             dump['can_edit'] = True
 
-        # find my link to the contact, might be link to someoneself
-        # but this is needed for the nickname
-        q_rel = Link.all()
-        q_rel.filter("contact_ref =", me)
-        q_rel.filter("link_to =", contact)
-        rel = q_rel.fetch(1)
-        if len(rel) > 0:
-            assert len(rel) == 1, "too many links from: %s to: %s" % (str(me.key(),str(contact.key())))
-            rel = rel[0]
-            dump['relation_to_me'] = rel.link
-            if contact.class_name() == "Person":
-                dump['nickname'] = rel.nickname
-
-        if me.key() == contact.key():
+        if login_user.me.key() == contact.key():
             dump['relation_to_me'] = "%s, that's you!" % (contact.name)
             dump['myself'] = True
+        else:
+            # find a contact's nickname
+            q_rel = Link.all()
+            q_rel.filter("contact_ref =", login_user.me)
+            q_rel.filter("link_to =", contact)
+            rel = q_rel.fetch(1)
+            if len(rel) > 0:
+                assert len(rel) == 1, "too many links from: %s to: %s" % (str(login_user.me.key(),str(contact.key())))
+                rel = rel[0]
+                dump['relation_to_me'] = rel.link
+                if contact.class_name() == "Person":
+                    dump['nickname'] = rel.nickname
 
+        # This contact's connections
+        for ln in dump['link']:
+            # load linked object from database
+            link = Contact.get(Key(ln['link_to']))
+            ln['name'] = link.name
+            ln['lastname'] = link.lastname
+
+    # add information whether a property has deleted (attic) elements
     for instance in ['email','web','address','mobile','other']:
-        # add information whether a property has deleted (attic) elements
         if instance in dump:
             for t2 in dump[instance]:
                 if 'attic' in t2 and  t2['attic']:
                     dump["%s_attic" % (instance)] = True
+
 
     return dump
 
@@ -74,10 +80,23 @@ class Take2Search(webapp.RequestHandler):
     """Run a search query over the current user's realm"""
 
     def get(self):
-        user = users.get_current_user()
-        signed_in = True if user else False
-        me = get_current_user_person(user)
-        template_values = get_current_user_template_values(user,self.request.uri)
+        google_user = users.get_current_user()
+        signed_in = True if google_user else False
+        login_user = get_login_user(google_user)
+        template_values = get_current_user_template_values(google_user,self.request.uri)
+
+        # no connection between signed in user and any person in the database
+        if login_user and not login_user.me:
+            # prepare list of days and months
+            daylist = ["(skip)"]
+            daylist.extend(range(1,32))
+            template_values['daylist'] = daylist
+            monthlist=[(str(i),calendar.month_name[i]) for i in range(13)]
+            monthlist[0] = ("0","(skip)")
+            template_values['monthlist'] = monthlist
+            path = os.path.join(os.path.dirname(__file__), 'take2welcome.html')
+            self.response.out.write(template.render(path, template_values))
+            return
 
         query = self.request.get('query',"")
         contact_key = self.request.get('key',"")
@@ -103,39 +122,39 @@ class Take2Search(webapp.RequestHandler):
         if contact_key:
             contact = Contact.get(contact_key)
             # this is basically a db dump
-            con = encode_contact(contact, include_attic=False, signed_in=signed_in, me=me)
+            con = encode_contact(contact, include_attic=False, login_user=login_user)
             # adjust fields and add extra fields for website renderer
-            con = encode_contact_for_webpage(con, contact, me)
+            con = encode_contact_for_webpage(con, contact, login_user)
             result.append(con)
 
         #
         # query search
         #
 
-        if query:
+        elif query:
             cis = lookup_contacts(query, 100, first_call=True)
             # TODO implement various pages for lng result lists
             template_values['query'] = query
             for contact in cis:
-                con = encode_contact(contact, include_attic=False, signed_in=signed_in, me=me)
+                con = encode_contact(contact, include_attic=False, login_user=login_user)
                 # adjust fields and add extra fields for website renderer
-                con = encode_contact_for_webpage(con, contact, me)
+                con = encode_contact_for_webpage(con, contact, login_user)
                 result.append(con)
         else:
             # display current user data
-            if me:
-                con = encode_contact(me, include_attic=False, signed_in=signed_in, me=me)
+            if login_user:
+                con = encode_contact(login_user.me, include_attic=False, login_user=login_user)
                 # adjust fields and add extra fields for website renderer
-                con = encode_contact_for_webpage(con, me, me)
+                con = encode_contact_for_webpage(con, login_user.me, login_user)
                 result.append(con)
 
         #
         # birthday search
         #
 
-        if me:
+        if login_user:
             # read from cache if possible
-            template_values['birthdays'] = memcache.get('birthdays',namespace=str(me.key()))
+            template_values['birthdays'] = memcache.get('birthdays',namespace=str(login_user.key()))
             if not template_values['birthdays']:
                 daterange_from = datetime.today() - timedelta(days=5)
                 daterange_to = datetime.today() + timedelta(days=14)
@@ -154,7 +173,7 @@ class Take2Search(webapp.RequestHandler):
                     fuzzydate_to_1 = fuzzydate_to
                 logging.debug("Birthday search from: %d to %d OR  %d to %d" % (fuzzydate_from,fuzzydate_to_1,fuzzydate_from_1,fuzzydate_to))
                 # whose birthdays can I see?
-                vcon = visible_contacts(me)
+                vcon = visible_contacts(login_user)
                 # now find the ones with birthdays in the range
                 template_values['birthdays'] = []
                 for ckey in vcon:
@@ -170,12 +189,12 @@ class Take2Search(webapp.RequestHandler):
                                                         calendar.month_name[con.birthday.get_month()])
                         jubilee['name'] = con.name
                         # find the nickname
-                        link = Link.all().filter("link_to =", ckey).filter("contact =", me).get()
+                        link = Link.all().filter("link_to =", ckey).filter("contact =", login_user.me).get()
                         if link:
                             jubilee['nickname'] = link.nickname
                         template_values['birthdays'].append(jubilee)
-                        # store in memcache
-                        memcache.set('birthdays',template_values['birthdays'],namespace=str(me.key()))
+                # store in memcache
+                memcache.set('birthdays',template_values['birthdays'],time=60*60*24,namespace=str(login_user.key()))
 
         # render search result page
         template_values['result'] = result
@@ -184,8 +203,9 @@ class Take2Search(webapp.RequestHandler):
 
 
 
-application = webapp.WSGIApplication([('/search.*', Take2Search),
-                                      ],debug=True)
+application = webapp.WSGIApplication([('/', Take2Search),
+                                      ('/search.*', Take2Search),
+                                      ],debug=settings.DEBUG)
 
 def main():
     logging.getLogger().setLevel(settings.LOG_LEVEL)

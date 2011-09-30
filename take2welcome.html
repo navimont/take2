@@ -1,0 +1,55 @@
+{% extends "take2baseclass.html" %}
+
+{% block title %}
+Weschnitz Welcome.
+{% endblock %}
+
+{% block content %}
+  {% for error in errors %}
+      <div class="error">{{ error }}</div>
+  {% endfor %}
+
+  <article id="signup">
+    <p>To use Weschnitz as your address book, you must first enter your own name.</p>
+
+    <form action="/signup" method="get">
+      <p>
+        <label for="name">First name:</label>
+        <input name="name" type="text" id="signup_name" value="{{name}}" placeholder="your name"/>
+      </p>
+      <p>
+        <label for="lastname">Last name:</label>
+        <input name="lastname" type="text" id="signup_lastname" value="{{lastname}}"/>
+      </p>
+      <p>
+        <label for="birthday">Birthday:</label>
+        <select name="birthday" size="0" id="signup_birthday">
+          {% for day in daylist %}
+            <option {% if birthday == day %}selected{% endif %} value="{{day}}">{{day}}</option>
+          {% endfor %}
+        </select>
+        <select name="birthmonth" size="0" id="signup_birthmonth">
+          {% for month in monthlist %}
+            <option {% if birthmonth == month.0 %}selected{% endif %} value="{{month.0}}">{{month.1}}</option>
+          {% endfor %}
+        </select>
+      </p>
+
+      <h3>Terms and Conditions</h3>
+      <ul>
+        <li>Weschnitz will never make your personal data accessible to anyone without your consent.</li>
+        <li>Weschnitz will do its best to keep your personal data save.</li>
+        <li>Weschnitz will never display any advertisements on its site but this means that at some point we may
+        start charging you a a small fee for extra services. However, storing your personal address book and
+        accessing it online will always be free.</li>
+      </ul>
+      <p>
+        <input name="terms" type="checkbox" value="False" id="signup_terms"/>
+        <label for="admin">Accept terms and conditions</label>
+      </p>
+      <p>
+        <input name="action" value="Sign up" type="submit" id="signup_submit"/>
+      </p>
+    </form>
+  </article>
+{% endblock %}

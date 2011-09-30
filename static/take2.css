@@ -31,31 +31,45 @@ a img {border: 0;}
 /*	Typography presets
 	------------------	*/
 
-h1, h2, h3, h4, h5, h6 {
-	font-weight: normal;
+.gigantic {
+	font-size: 68px;
+	line-height: 70px;
+	letter-spacing: -1px;
+}
+
+.huge, h1 {
+	font-size: 36px;
+	line-height: 38px;
+}
+
+.large, h2 {
+	font-size: 24px;
+	line-height: 30px;
+}
+
+.bigger, h3 {
+	font-size: 18px;
+	line-height: 24px;
+}
+
+.big, h4 {
+	font-size: 14px;
+	line-height: 22px;
 }
 
 body {
 	font: 17px/24px Palatino, Constantia, "Palatino Linotype", serif;
 }
 
-.gigantic      { font-size:  64px; line-height:  66px;                           letter-spacing: -2px; }
-.huge,   h1    { font-size:  34px; line-height:  44px;                           letter-spacing: -0px; }
-.large,  h2    { font-size:  28px; line-height:  36px; margin:  0px 0px 20px 0px;                      }
-.bigger, h3    { font-size:  22px; line-height:  30px; margin: 44px 0px  0px 0px;                      }
-.big,    h4    { font-size:  14px; line-height:  22px; margin: 20px 0px  0px 0px; font-weight: bold;   }
-.normal, p     { font-size:  14px; line-height:  22px; margin:  0px 0px 10px 0px;                      }
-.small,  small { font-size:  12px; line-height:  16px;                                                 }
-
-
 .small, small {
-	font-size: 13px;
-	line-height: 18px;
+	font-size: 11px;
+	line-height: 16px;
 }
 
 .error {
+  border: 2px solid red;
 	text-align: center;
-	color: #999;
+	margin: 0px;
 	text-shadow: 2px 2px 2px #fff;
 }
 
@@ -91,7 +105,6 @@ body {
 	padding-left: 48px;
 	padding-right: 48px;
   padding-top: 24px;
-  padding-bottom: 9px;
 	width: 896px;
   background-color: #30C090;
 }
@@ -102,37 +115,60 @@ body {
   bottom: 30px;
 }
 
+#masthead p {
+  margin: 0px;
+}
+
 #masthead #autocomplete {
   width: 260px;
 }
 
 #masthead nav {
-  width: 200px;
+  width: 400px;
   text-align: right;
   float: right;
 }
 
-#birthdays, #results, article {
+/* general layout for centered text */
+
+#birthdays, #results, #results_section, .error, #signup {
   margin-top: 14px;
   margin-left: 160px;
   margin-right: 160px;
   width: 672px;
 }
 
-#birthdays li, article li {
+
+.error {
+  padding 10px;
+}
+
+#signup {
+  background-color: #64D8B1;
+  padding: 10px;
+}
+
+#signup li {
+  list-style-position: inside;
+}
+
+#birthdays li, #results li {
   list-style: none;
   padding-left: 10px;
   padding-bottom: 10px;
 }
 
-article {
+/* one results box per person */
+#results {
   margin-left: 0px;
   margin-right: 0px;
   min-height: 80px;
   padding-left: 10px;
+  padding-right: 10px;
   background-color: #64D8B1;
 }
 
+/* floating navigation box alongside a #result */
 .contact_navigation {
   float: left;
 	width: 66px;
@@ -145,6 +181,8 @@ article {
   list-style: none;
   text-align: right;
   padding: 0px;
+  margin-top: 5px;
+  line-height: 30%;
 }
 
 /* all links on this page */
@@ -157,7 +195,10 @@ a:hover {
   cursor: pointer;
 }
 
-
+#contact_link {
+  color: #303030;
+  text-decoration: underline;
+}
 
 /*		Tablet Layout: 768px.
 		Gutters: 24px.
@@ -236,12 +277,9 @@ px      68    160    252    344    436    */
     height: 30px;
 }
 
-.button {
-    padding: 2px;
-    color: #E6E6E6;
-    border: 1px solid #030303;
-    background-color: #26361C;
+hr {
+  background-color: #3C3C3C;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  height: 2px;
 }
-.content_body a:link {color: #E6E6E6; text-decoration:none;}
-.content_body a:visited {color: #E6E6E6; text-decoration:none;}
-.content_body a:hover {cursor: pointer; text-decoration:none;}

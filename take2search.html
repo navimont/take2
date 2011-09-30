@@ -6,9 +6,7 @@ Search for address
 
 {% block content %}
   <section id="birthdays">
-    {% if not signed_in %}
-      <p>If you are a new user, please log in (a google account will do).</p>
-    {% else %}
+    {% if signed_in %}
       <!-- Show birthdays for signed in users -->
       {% if birthdays %}
         <header>
@@ -20,23 +18,27 @@ Search for address
           {% endfor %}
         </ul>
       {% endif %}
+    {% else %}
+      <p>You need to sign in to use this site (a google account will do).</p>
     {% endif %}
   </section>
   {% if result %}
-    <section id="results">
+    <section id="results_section">
       {% if query %}
         <header>
           <h1>{{ result|length }} Results for "{{ query|escape }}":</h1>
         </header>
       {% endif %}
       {% for contact in result %}
-        <article>
+        <article id="results">
           <aside class="contact_navigation">
             <ul>
               {% if contact.can_edit %}
                 <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">edit</a></li>
+                <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">share</a></li>
+              {% else %}
+                <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">connect</a></li>
               {% endif %}
-              <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">connect</a></li>
               <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">locate</a></li>
             </ul>
           </aside>
@@ -44,7 +46,7 @@ Search for address
             <h2>
               {{ contact.name }}
               {% if contact.nickname %}
-                  &nbsp;({{contact.nickname}})
+                  ({{contact.nickname}})
               {% endif %}
               {{contact.lastname}}
               {% if contact.birthday %}
@@ -52,24 +54,26 @@ Search for address
               {% endif %}
             </h2>
             {% if contact.relation_to_me %}
-              <div class="contact_relation">
+              <h3>
                 {{contact.relation_to_me}}
-              </div>
-            {% endif %}
-            {% if contact.user %}
-              <div class="contact_account">
-                  Google account: {{contact.user.nickname}}
-              </div>
+              </h3>
             {% endif %}
           </header>
           <aside class="contact_links">
             {% if contact.link %}
               <hr>
-              <ul>
-                {% for link in contact.link %}
-                  <li>{{link.link}}
-                {% endfor %}
-              </ul>
+              {% for link in contact.link %}
+                <a id="contact_link" href="/search?key={{link.link_to}}">
+                {{link.name}}
+                {% if link.nickname %}
+                    ({{link.nickname}})
+                {% endif %}
+                {{link.lastname}}
+                </a>
+                {% if not forloop.last %}
+                  ,&nbsp;
+                {% endif%}
+              {% endfor %}
             {% endif %}
           </aside>
           <!-- properties for this contact -->
@@ -85,7 +89,7 @@ Search for address
             <hr>
             <ul>
               {% for web in contact.web %}
-                <li>{{web.web}}
+                <li><a id="contact_link" href="{{web.web}}">{{web.web}}</a></li>
               {% endfor %}
             </ul>
           {% endif %}
@@ -98,10 +102,23 @@ Search for address
             </ul>
           {% endif %}
           {% if contact.address %}
-            <hr>
             <ul>
               {% for address in contact.address %}
-                <li>{{address.address}}
+              <hr>
+                {% for adr_line in address.adr %}
+                    <li>{{adr_line}}</li>
+                {% endfor %}
+                <li><strong>{{address.country}}</strong></li>
+                {% if address.landline_phone %}
+                    <li>phone: {{address.landline_phone}}</li>
+                {% endif %}
+                {% if address.adr_zoom %}
+                    <li>
+                    {% for place in address.adr_zoom %}
+                        <em>{{ place }}&nbsp;</em>
+                    {% endfor %}
+                    </li>
+                {% endif %}
               {% endfor %}
             </ul>
           {% endif %}

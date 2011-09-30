@@ -5,7 +5,7 @@
 import settings
 import logging
 import os
-import json
+from django.utils import simplejson as json
 import unicodedata
 from random import shuffle
 from datetime import datetime
@@ -18,37 +18,53 @@ from google.appengine.api import memcache
 from take2dbm import Contact, Person, Company, Take2, ContactIndex, PlainKey
 
 def plainify(string):
-    """Removes all accents and special characters form string and converts ist to lower case"""
+    """Removes all accents and special characters form string and converts
+    string to lower case
 
-    s1 = string.strip(",.;:\\?/!@#$%^&*()[]{}|\"'")
-    s1 = unicodedata.normalize('NFD',s1.lower())
-    s1 = s1.replace("`", "")
-    s1 = s1.encode('ascii','ignore')
-    s1 = s1.replace("~", "")
-
-    return s1
-
-
-def check_and_store_key(key, contact):
-    """Checks if a key for a contact is already present, if not, store it in ContactIndex
-
-    Returns 0 if key was already present
-    Returns 1 otherwise
+    Returns an array of plainified strings (splitted at space)
     """
+    res = []
+    for s1 in string.split(" "):
+        s1 = s1.strip(",.;:\\?/!@#$%^&*()[]{}|\"'")
+        s1 = unicode(s1)
+        s1 = unicodedata.normalize('NFD',s1.lower())
+        s1 = s1.replace("`", "")
+        s1 = s1.encode('ascii','ignore')
+        s1 = s1.replace("~", "")
+        res.append(s1)
 
-    # lookup plainified key
-    pk = PlainKey.all().filter("plain_key =", key).get()
-    if pk:
-        if ContactIndex.all().filter("plain_key_ref =", pk).filter("contact_ref =", contact).get():
-            return 0
-    else:
-        logging.debug("New plain key %s" % (key))
-        pk = PlainKey(plain_key=key)
-        pk.put()
-    # save
-    logging.debug("New contact index %s to %s" % (key, contact.name))
-    ci = ContactIndex(plain_key_ref=pk, contact_ref=contact)
-    ci.put()
+    return res
+
+
+def check_and_store_key(contact):
+    """Saves index keywords for the contact (name and last name)
+
+    Returns number of additional keys saved in index
+    """
+    if contact.attic:
+        return 0
+
+    res = 0
+
+    new_keys = (plainify(contact.name))
+    if contact.class_name() == "Person":
+        if contact.lastname:
+            new_keys.extend(plainify(contact.lastname))
+
+    for key in new_keys:
+        # lookup plainified key
+        pk = PlainKey.all().filter("plain_key =", key).get()
+        if pk:
+            if ContactIndex.all().filter("plain_key_ref =", pk).filter("contact_ref =", contact).get():
+                break
+        else:
+            logging.debug("New plain key %s" % (key))
+            pk = PlainKey(plain_key=key)
+            res = res +1
+            pk.put()
+        # save
+        ci = ContactIndex(plain_key_ref=pk, contact_ref=contact)
+        ci.put()
 
     return 1
 
@@ -92,15 +108,8 @@ class UpdateContactIndex(webapp.RequestHandler):
             # only since last refresh
             if con.timestamp < last_refresh:
                 break
-
-            res = check_and_store_key(plainify(con.name),con)
             # keep track of total number
-            add = add + res
-
-            if con.class_name() == "Person":
-                if con.lastname:
-                    res = check_and_store_key(plainify(con.lastname),con)
-                    add = add + res
+            add = add + check_and_store_key(con)
 
         logging.info("Contact index up to date: %d added. %d deleted." % (add,len(delete)))
 
@@ -108,7 +117,7 @@ def lookup_contacts(term, result_size=20, first_call=True):
     """Lookup function for search term.
 
     Returns Contact objects (Person or Company)
-    Splits term if mor than one word
+    Splits term if more than one word
     """
 
     # check in memcache
@@ -122,13 +131,13 @@ def lookup_contacts(term, result_size=20, first_call=True):
         return db.get(res)
 
     logging.debug(term)
-    queries = term.split()
+    queries = plainify(term)
     logging.debug(queries)
 
     query_contacts = []
     for query in queries:
         plain_keys = []
-        query0 = plainify(query)
+        query0 = query
         query1 = query0+u"\ufffd"
         # look up plain query string in list of plain keys
         q_pk = db.Query(PlainKey, keys_only=True)
@@ -173,11 +182,11 @@ class LookupNames(webapp.RequestHandler):
         res = []
 
         term = self.request.get('term',"")
-        queries = term.split(" ")
+        queries = plainify(term)
 
         res = []
         for query in queries:
-            query0 = plainify(query)
+            query0 = query
             query1 = query0+u"\ufffd"
             # look up plain query string in list of plain keys (keys only)
             q_pk = db.Query(PlainKey, keys_only=True)
@@ -209,7 +218,7 @@ class LookupNames(webapp.RequestHandler):
 
 application = webapp.WSGIApplication([('/lookup', LookupNames),
                                       ('/index', UpdateContactIndex),
-                                      ],debug=True)
+                                      ],settings.DEBUG)
 
 def main():
     logging.getLogger().setLevel(settings.LOG_LEVEL)

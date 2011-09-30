@@ -1,4 +1,4 @@
-application: take2
+application: sweschnitz
 version: 1
 runtime: python
 api_version: 1
@@ -10,8 +10,11 @@ handlers:
 - url: /(export.*|import|importfile)
   script: take2export.py
 
-- url: /search.*
+- url: (/|/search.*)
   script: take2search.py
+
+- url: (/signup.*)
+  script: take2access.py
 
 - url: /(index|lookup)
   script: take2contact_index.py

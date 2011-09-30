@@ -3,6 +3,7 @@
 from google.appengine.ext import db
 from google.appengine.ext.db import polymodel
 from google.appengine.ext.db import BadValueError
+from geo.geomodel import GeoModel
 import settings
 
 class FuzzyDate(object):
@@ -83,6 +84,19 @@ class FuzzyDateProperty(db.Property):
     def empty(self, value):
         return not value
 
+class LoginUser(GeoModel):
+    """A user instance (connects with one google account)
+
+    It supports geospatial queries with the help of GeoModel
+    Call update_location() method before storing location changes.
+    """
+    # google login
+    user = db.UserProperty()
+    # location attribute comes from parent class and is required
+    location_timestamp = db.DateTimeProperty(auto_now=True)
+    # points to the Person which represents this user
+    # (can't use the Person qualifier because Person is not defined yet)
+    me = db.ReferenceProperty()
 
 class Contact(polymodel.PolyModel):
     """Base class for person and Company"""
@@ -91,10 +105,9 @@ class Contact(polymodel.PolyModel):
     # archived
     attic = db.BooleanProperty(default=False)
     # creation timestamp
-    timestamp = db.DateTimeProperty(auto_now=True)
-    # points to the Person instance who owns (created)
-    # an instance. May point to itself.
-    owned_by = db.SelfReferenceProperty(collection_name="owns_contacts")
+    timestamp = db.DateTimeProperty(auto_now_add=True)
+    # points to the User instance who owns (created) the instance.
+    owned_by = db.ReferenceProperty(LoginUser)
 
 class Company(Contact):
     """Represents a company"""
@@ -105,8 +118,6 @@ class Person(Contact):
     birthday = FuzzyDateProperty(default=FuzzyDate(0,0,0))
     # a photo
     photo = db.BlobProperty()
-    # google login
-    user = db.UserProperty()
 
 class Take2(polymodel.PolyModel):
     """Base class for a contact's data.
@@ -120,12 +131,7 @@ class Take2(polymodel.PolyModel):
     # newer version of this entity.
     contact_ref = db.ReferenceProperty(reference_class=None, required=True)
     # creation timestamp
-    timestamp = db.DateTimeProperty(auto_now=True)
-    # Determines whether orther people can see this property
-    # 0: private - Only the creator can see it
-    # 1: restricted - People whom the creator trusts can see it
-    # 2: open - The whole world can see it
-    privacy = db.IntegerProperty(choices=settings.PRIVACY.keys(), default=1)
+    timestamp = db.DateTimeProperty(auto_now_add=True)
     # archived
     attic = db.BooleanProperty(default=False)
 

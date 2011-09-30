@@ -6,7 +6,7 @@ import os
 import calendar
 from datetime import datetime, timedelta
 import yaml
-import json
+from django.utils import simplejson as json
 from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.ext import webapp
@@ -175,8 +175,7 @@ class PersonSave(webapp.RequestHandler):
                 raise db.BadValueError('Illegal date')
             if action == 'new':
                 person = Person(name=self.request.get("firstname", ""),
-                                lastname=self.request.get("lastname", ""),
-                                nickname=self.request.get("nickname", ""))
+                                lastname=self.request.get("lastname", ""))
                 person.birthday = FuzzyDate(day=day,month=month,year=year)
                 person.owned_by = me
                 person.put()
@@ -187,6 +186,8 @@ class PersonSave(webapp.RequestHandler):
                 person.lastname = lastname=self.request.get("lastname", "")
                 person.birthday = FuzzyDate(day=day,month=month,year=year)
                 person.put()
+            # generate search keys for new contact
+            check_and_store_key(person)
         except db.BadValueError as error:
             template_values['errors'] = [error]
         except ValueError as error:
@@ -585,7 +586,6 @@ class Take2Save(webapp.RequestHandler):
             for arg in self.request.arguments():
                 template_values[arg] = self.request.get(arg)
             path = os.path.join(os.path.dirname(__file__), self.request.get("form_file"))
-            logging.debug("form file %s" % path)
             self.response.out.write(template.render(path, template_values))
             return
 
@@ -663,7 +663,7 @@ application = webapp.WSGIApplication([('/editcontact', ContactEdit),
                                       ('/save.*', Take2Save),
                                       ('/attic.*', Take2Attic),
                                       ('/deattic.*', Take2Deattic),
-                                     ],debug=True)
+                                     ],settings.DEBUG)
 
 def main():
     logging.getLogger().setLevel(settings.LOG_LEVEL)
