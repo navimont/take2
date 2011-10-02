@@ -17,7 +17,7 @@ handlers:
   script: take2access.py
 
 - url: /(index|lookup)
-  script: take2contact_index.py
+  script: take2index.py
 
 - url: /(new.*|edit.*|save.*|attic.*|deattic.*)
   script: take2edit.py
@@ -26,3 +26,4 @@ handlers:
 - url: /geo.*
   script: take2geo.py
   login: required
+

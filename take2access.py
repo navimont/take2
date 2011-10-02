@@ -12,7 +12,7 @@ from google.appengine.api import users
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
-from take2contact_index import check_and_store_key
+from take2index import check_and_store_key
 
 def write_access(obj, login_user):
     """Makes sure that me can edit the object

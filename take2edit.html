@@ -5,264 +5,94 @@
         $(document).ready(function() {
 
           // make attic entries disappear
-          $('tr.attic-mobile').hide();
-          $('div.attic-mobile-click').click(function(){
-              $('tr.attic-mobile').toggle();
-          });
-          $('tr.attic-email').hide();
-          $('div.attic-email-click').click(function(){
-              $('tr.attic-email').toggle();
-          });
-          $('tr.attic-web').hide();
-          $('div.attic-web-click').click(function(){
-              $('tr.attic-web').toggle();
-          });
-          $('tr.attic-other').hide();
-          $('div.attic-other-click').click(function(){
-              $('tr.attic-other').toggle();
-          });
-          $('tr.attic-address').hide();
-          $('div.attic-address-click').click(function(){
-              $('tr.attic-address').toggle();
+          $('div.take2_data_attic').hide();
+          $('div.take2_section .take2_header_toggle').click(function(){
+              var section = $(this).parents('div.take2_section');
+              $("div.take2_data_attic", section).toggle()
           });
         });
     </script>
 
-    {% if errors %}
-        {% for error in errors %}
-            <div class="error">{{ error }}</div>
-        {% endfor %}
-    {% endif %}
+    {% for error in errors %}
+        <div class="error">{{ error }}</div>
+    {% endfor %}
 
-    <div class="span-6">
-        &nbsp;
-    </div>
-    <div class="span-18 last">
-    <table class="no-zebra">
-      <tr>
-        <td width="75%">
-          <h2>
+    <header>
+      <h1>Manage contact details</h1>
+    </header>
+
+
+    <article id="results">
+      <header style="padding: 10px 0px 10px 0px;">
+        <aside class="contact_edit">
+          {% if contact.attic %}
+              <a href="javascript:post_to_url('/deatticcontact', {'key': '{{contact.key}}' } );">Undelete</a>
+          {% else %}
+              <a href="javascript:void(0)" onClick="post_to_url('/atticcontact', {'key': '{{contact.key}}'});">Delete</a>
+          {% endif %}
+        </aside>
+        <h2>
+          <a href="javascript:void(0)" onClick="post_to_url('/editperson', {'key': '{{contact.key}}'});">
             {{ contact.name }}
             {% if contact.nickname %}
                 ({{contact.nickname}})
             {% endif %}
             {{contact.lastname}}
             {% if contact.birthday %}
-                *{{contact.birthday}}
+                &nbsp;*{{contact.birthday}} {{contact.birthmonth}}
             {% endif %}
-          </h2>
-        </td>
-        <td width="25%">
-            {% if contact.can_edit %}
-                {% if contact.type == 'person' %}
-                    <a class="button" href="javascript:void(0)" onClick="post_to_url('editperson', {'key': '{{contact.key}}'});">Edit</a>
-                {% else %}
-                    <a class="button" href="javascript:void(0)" onClick="post_to_url('editcompany', {'key': '{{contact.key}}'});">Edit</a>
-                {% endif %}
-            {% endif %}
-            {% if contact.attic %}
-                <a class="button" href="javascript:void(0)" onClick="post_to_url('deatticcontact', {'key': '{{contact.key}}'});">De-Attic</a>
-            {% else %}
-                <a class="button" href="javascript:void(0)" onClick="post_to_url('atticcontact', {'key': '{{contact.key}}'});">Attic</a>
-            {% endif %}
-        <td>
-      </tr>
-      {% if contact.relation_to_me %}
-      <tr>
-          <td>
-              <strong>{{contact.relation_to_me}}</strong>
-          </td>
-          <td>
-          </td>
-      </tr>
-      {% endif %}
-      {% if contact.user %}
-        <tr>
-            <td>
-                <em>Google account: {{contact.user.nickname}}</em>
-            </td>
-            <td></td>
-        </tr>
-      {% endif %}
-      <tr class="property_header">
-          <td>
-              <!-- mobile phone -->
-              <div class="property_header">
-                  <a href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'mobile', 'key': '{{contact.key}}'});"><img src="static/icon-plus.png" class="property_header click_icon"></a>
-                  <a class="property_header property_header_text" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'mobile', 'key': '{{contact.key}}'});">&nbsp;Add mobile phone</a>
-              </div>
-              {% if contact.mobile_attic %}
-                  <div class="property_header attic-mobile-click">
-                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
-                      <a class="property_header property_header_text">&nbsp;Show/hide old phone numbers</a>
-                  </div>
+          </a>
+        </h2>
+        {% for relation in contact.relations %}
+          <h3>
+            {{relation}}
+          </h3>
+        {% endfor %}
+      </header>
+      <!-- properties for this contact -->
+      {% for take2 in contact.take2 %}
+        <div class="take2_section">
+          <div class="take2_header">
+            <div>
+              <a href="javascript:void(0)" onClick="post_to_url('/edittake2', {'action': 'new', 'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
+                  <img class="take2_header_icon" src="/static/icon-new.png" alt="New">
+              </a>
+              <a class="take2_header_text" href="javascript:void(0)" onClick="post_to_url('/edittake2', {'action': 'new', 'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
+                <h3> {{take2.header}}</h3>
+              </a>
+            </div>
+            <div style="height: 10px"></div>
+            <a class="take2_header_toggle" href="javascript:void(0)">
+                <img class="take2_header_icon" src="/static/icon-undelete.png" alt="New">
+            </a>
+            <a class="take2_header_toggle" href="javascript:void(0)">
+              Show/hide deleted items
+            </a>
+          </div>
+          <div style="height: 10px"></div>
+          <ul>
+            {% for data in take2.data %}
+              {% if data.attic %}
+                <div class="take2_data_attic">
+              {% else %}
+                <div class="take2_data">
               {% endif %}
-          </td>
-          <td></td>
-      </tr>
-      {% for mobile in contact.mobile %}
-          {% if mobile.attic %}
-              <tr class="attic-mobile">
-          {% else %}
-              <tr class="current">
-          {% endif %}
-                  <td>{{mobile.mobile}}</td>
-                  <td>
-                      <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'mobile', 'key': '{{mobile.key}}' });">Edit</a>
-                      {% if mobile.attic %}
-                          <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'mobile', 'key': '{{mobile.key}}' } );">Undelete</a>
-                      {% else %}
-                          <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'mobile', 'key': '{{mobile.key}}'});">Delete</a>
-                      {% endif %}
-                  </td>
-              </tr>
-      {% endfor %}
-      <tr class="property_header">
-          <td>
-              <!-- email -->
-              <div class="property_header add-email-click">
-                  <a href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'email', 'key': '{{contact.key}}'});"><img src="static/icon-plus.png" class="property_header click_icon"></a>
-                  <a class="property_header property_header_text" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'email', 'key': '{{contact.key}}'});">&nbsp;Add email address</a>
-              </div>
-              {% if contact.email_attic %}
-                  <div class="property_header attic-email-click">
-                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
-                      <a class="property_header property_header_text">&nbsp;Show/hide old email addresses</a>
-                  </div>
-              {% endif %}
-          </td>
-          <td></td>
-      </tr>
-      {% for email in contact.email %}
-          {% if email.attic %}
-              <tr class="attic-email">
-          {% else %}
-              <tr class="current">
-          {% endif %}
-                  <td>{{email.email}}</td>
-                  <td>
-                      <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'email', 'key': '{{email.key}}' });">Edit</a>
-                      {% if email.attic %}
-                          <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'email', 'key': '{{email.key}}' } );">Undelete</a>
-                      {% else %}
-                          <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'email', 'key': '{{email.key}}'});">Delete</a>
-                      {% endif %}
-                  </td>
-              </tr>
-      {% endfor %}
-      <tr class="property_header">
-          <td>
-              <!-- web site -->
-              <div class="property_header add-web-click">
-                  <a href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'web', 'key': '{{contact.key}}'});"><img src="static/icon-plus.png" class="property_header click_icon"></a>
-                  <a class="property_header property_header_text" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'web', 'key': '{{contact.key}}'});">&nbsp;Add web address</a>
-              </div>
-              {% if contact.web_attic %}
-                  <div class="property_header attic-web-click">
-                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
-                      <a class="property_header property_header_text">&nbsp;Show/hide old web sites</a>
-                  </div>
-              {% endif %}
-          </td>
-          <td></td>
-      </tr>
-      {% for web in contact.web %}
-          {% if web.attic %}
-              <tr class="attic-web">
-          {% else %}
-              <tr class="current">
-          {% endif %}
-                  <td>{{web.web}}</td>
-                  <td>
-                      <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'web', 'key': '{{web.key}}' });">Edit</a>
-                      {% if web.attic %}
-                          <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'web', 'key': '{{web.key}}' } );">Undelete</a>
-                      {% else %}
-                          <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'web', 'key': '{{web.key}}'});">Delete</a>
-                      {% endif %}
-                  </td>
-              </tr>
-      {% endfor %}
-      <tr class="property_header">
-          <td>
-              <!-- Address -->
-              <div class="property_header add-address-click">
-                  <a href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'address', 'key': '{{contact.key}}'});"><img src="static/icon-plus.png" class="property_header click_icon"></a>
-                  <a class="property_header property_header_text" onClick="post_to_url('edittake2', {'action': 'new', 'instance': 'address', 'key': '{{contact.key}}'});">&nbsp;Add address</a>
-              </div>
-              {% if contact.address_attic %}
-                  <div class="property_header attic-address-click">
-                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
-                      <a class="property_header property_header_text">&nbsp;Show/hide old addresses</a>
-                  </div>
-              {% endif %}
-          </td>
-          <td></td>
-      </tr>
-      {% for address in contact.address %}
-          {% if address.attic %}
-              <tr class="attic-address">
-          {% else %}
-              <tr class="current">
-          {% endif %}
-              <td>
-              {% for adr_line in address.adr %}
-                  <br>{{adr_line}}
-              {% endfor %}
-              <p>{{address.country}}
-              {% if address.landline_phone %}
-                  <p>phone: {{address.landline_phone}}
-              {% endif %}
-              {% if address.adr_zoom %}
-                  <p>
-                  {% for place in address.adr_zoom %}
-                      <em>{{ place }}&nbsp;</em>
-                  {% endfor %}
-              {% endif %}
-              </td>
-              <td>
-                  <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'address', 'key': '{{address.key}}' });">Edit</a>
-                  {% if address.attic %}
-                      <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'address', 'key': '{{address.key}}' } );">Undelete</a>
+                <aside class="contact_edit">
+                  {% if data.attic %}
+                      <a href="javascript:post_to_url('/deattictake2', {'instance': '{{data.class_name}}', 'key': '{{data.key}}' } );">Undelete</a>
                   {% else %}
-                      <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'address', 'key': '{{address.key}}'});">Delete</a>
+                      <a href="javascript:void(0)" onClick="post_to_url('/attictake2', {'instance': '{{data.class_name}}', 'key': '{{data.key}}'});">Delete</a>
                   {% endif %}
-              </td>
-          </tr>
-      {% endfor %}
-      <tr class="property_header">
-          <td>
-              <!-- other -->
-              <div class="property_header add-other-click">
-                  <a href="javascript:void(0)"><img src="static/icon-plus.png" class="property_header click_icon"></a>
-                  <a class="property_header property_header_text">&nbsp;Add miscellaneous info</a>
+                </aside>
+                <li>
+                  <a href="javascript:void(0)" onClick="post_to_url('/edittake2', {'action': 'edit', 'instance': '{{data.class_name}}', 'key': '{{data.key}}' });">
+                      {{data.data}}
+                  </a>
+                </li>
               </div>
-              {% if contact.other_attic %}
-                  <div class="property_header attic-other-click">
-                      <a href="javascript:void(0)"><img src="static/icon-undelete.png" class="property_header click_icon"></a>
-                      <a class="property_header property_header_text">&nbsp;Show/hide old stuff</a>
-                  </div>
-              {% endif %}
-          </td>
-          <td></td>
-      </tr>
-      {% for other in contact.other %}
-          {% if other.attic %}
-              <tr class="attic-other">
-          {% else %}
-              <tr class="current">
-          {% endif %}
-                  <td>{{other.what}}: {{other.text}}</td>
-                  <td>
-                      <a class="button" href="javascript:void(0)" onClick="post_to_url('edittake2', {'action': 'edit', 'instance': 'other', 'key': '{{other.key}}' });">Edit</a>
-                      {% if other.attic %}
-                          <a class="button" href="javascript:post_to_url('deattictake2', {'instance': 'other', 'key': '{{other.key}}' } );">Undelete</a>
-                      {% else %}
-                          <a class="button" href="javascript:void(0)" onClick="post_to_url('attictake2', {'instance': 'other', 'key': '{{other.key}}'});">Delete</a>
-                      {% endif %}
-                  </td>
-              </tr>
+            {% endfor %}
+          </ul>
+        </div> <!-- take2_section -->
       {% endfor %}
-    </table>
-    </div>
+    </article>
 {% endblock %}

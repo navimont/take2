@@ -71,8 +71,8 @@ def check_and_store_key(contact):
 class UpdateContactIndex(webapp.RequestHandler):
     """Used by task queue"""
 
-    def post(self):
-        """Function is called asynchronously to build a contact index DB table
+    def get(self):
+        """Function is called by cron to build a contact index DB table
 
         Index contains:
         - Contact names

@@ -45,45 +45,37 @@
             georequest.onreadystatechange = checkReply;
             georequest.send(null);
         }
-
-
-
     </script>
-
-    <table class="no-zebra">
-        <tr>
-            <td width="20%" id="formtag">Address</td>
-            <td width="50%"><textarea id="adr_text" name="adr">{{adr}}</textarea></td>
-            <td width="30%" id="formhint"></td>
-        </tr>
-        <tr>
-            <td id="formtag"></td>
-            <td>
-                <select id="country_text" name="country" size="1">
-                    {% for land in landlist %}
-                    <option {{land.selected}} value="{{land.country}}">{{land.country}}</option>
-                    {% endfor %}
-                </select>
-            </td>
-            <td id="formhint"></td>
-        </tr>
-        <tr>
-            <td id="formtag">Phone</td>
-            <td><input type="text" name="landline_phone" value="{{landline_phone}}" size="20"></td>
-            <td id="formhint">(landline phone)</td>
-        </tr>
-        <tr>
-            <td><div id="globe"><img src="static/spinning_globe0.gif"></div></td>
-            <td>
-                <input type="hidden" name="adr_zoom" id="adr_zoom" value="{{adr_zoom}}" size="9" readonly>
-                <div id="adr_zoom_field">
-                {{adr_zoom}}
-                </div>
-                <br>
-                <input type="text" name="lat" id="lat" value="{{lat}}" size="9">
-                <input type="text" name="lon" id="lon" value="{{lon}}" size="9">
-            </td>
-            <td><a class="button" href="javascript:void(0)" onClick="getlatlon()">Lookup coordinates</a></td>
-        </tr>
-    </table>
+      <article>
+        <p>
+          <label for="adr">Address:</label>
+          <textarea id="adr_text" name="adr" rows="4" cols="40">{{adr}}</textarea>
+        </p>
+        <p>
+          <select id="country_text" name="country" size="1">
+              {% for land in landlist %}
+              <option {{land.selected}} value="{{land.country}}">{{land.country}}</option>
+              {% endfor %}
+          </select>
+        </p>
+        <p>
+          <label for="landline_phone">Phone:</label>
+          <input type="text" name="landline_phone" value="{{landline_phone}}" size="20">
+        </p>
+        <div id="globe" style="float: left; margin-left: -100px;">
+          <img src="static/spinning_globe0.gif">
+        </div>
+        <p>
+          <input type="hidden" name="adr_zoom" id="adr_zoom" value="{{adr_zoom}}" size="9" readonly>
+          <div id="adr_zoom_field">
+            {{adr_zoom}}
+          </div>
+        <p>
+        <p>
+          <label for="lat">Coordinates:</label>
+          <input type="text" name="lat" id="lat" value="{{lat}}" size="9">
+          <input type="text" name="lon" id="lon" value="{{lon}}" size="9">
+          <a class="button" href="javascript:void(0)" onClick="getlatlon()">Lookup coordinates</a>
+        <p>
+      </article>
 {% endblock %}

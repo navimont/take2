@@ -7,7 +7,7 @@
           $("input#what_autocompl").autocomplete( {
               source: [
                     {% for tag in taglist %}
-                        "{{tag.choice}}",
+                        "{{tag}}",
                     {% endfor %}
               ]
               });
@@ -17,7 +17,7 @@
     <table>
         <tr>
             <td id="formtag">
-                <input id="what_autocompl" type="text" name="what" value="{{ tag.choice }}" width="200px">
+                <input id="what_autocompl" type="text" name="what" value="{{tag}}" width="200px">
             </td>
             <td><input name="text" type="text" value="{{text}}" width="300px"></td>
             <td id="formhint"></td>

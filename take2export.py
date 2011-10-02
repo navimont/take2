@@ -14,10 +14,10 @@ from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import taskqueue
 from google.appengine.api import memcache
-from take2dbm import Contact, Person, Company, Take2, FuzzyDate, LoginUser
+from take2dbm import Contact, Person, Company, Take2, FuzzyDate, LoginUser, OtherTag
 from take2dbm import Link, Email, Address, Mobile, Web, Other, Country, PlainKey, ContactIndex
 from take2access import get_current_user_template_values, visible_contacts, get_login_user
-from take2contact_index import check_and_store_key
+from take2index import check_and_store_key
 
 def encode_take2(contact, include_attic=False):
     """Encodes the contact's take2 property objects
@@ -64,7 +64,7 @@ def encode_take2(contact, include_attic=False):
         elif obj.class_name() == "Mobile":
             res['mobile'] = obj.mobile
         elif obj.class_name() == "Other":
-            res['what'] = obj.what
+            res['tag'] = obj.tag.tag
             res['text'] = obj.text
         else:
             assert True, "Invalid class name: %s" % obj.class_name()
@@ -364,7 +364,12 @@ class Take2ImportTask(webapp.RequestHandler):
                                 m['web'] = 'http://'+m['web']
                             obj = Web(web=m['web'], contact_ref=entry)
                         if classname == 'other':
-                            obj = Other(what=m['what'], text=m['text'], contact_ref=entry)
+                            # look for existing tag in DB
+                            tag = OtherTag.all().filter("tag =", m['what']).get()
+                            if not tag:
+                                tag = OtherTag(tag=m['what'])
+                                tag.put()
+                            obj = Other(tag=tag, text=m['text'], contact_ref=entry)
                         if classname == 'link':
                             # save the link_to key from the imported data in the link_to
                             # property for rater resolve

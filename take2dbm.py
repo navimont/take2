@@ -115,7 +115,18 @@ class Company(Contact):
 class Person(Contact):
     """A natural Person"""
     lastname = db.StringProperty()
+    nickname = db.StringProperty()
     birthday = FuzzyDateProperty(default=FuzzyDate(0,0,0))
+    # This person might be related to another person. If so, 'relation'
+    # describes the kind of the relation and back_ref points to the person.
+    # as an example, Jose is my friend and Nelly is his wife. There need not
+    # to be a back_ref from Jose to me (as I know him well) but Nelly may
+    # just appear in my address book because she's his wife rather than
+    # having a relation to me.
+    # So relation="My friend Jose's wife"
+    # [Nelly].back_ref --> [Jose]
+    relation = db.StringProperty()
+    back_ref = db.ReferenceProperty()
     # a photo
     photo = db.BlobProperty()
 
@@ -138,15 +149,11 @@ class Take2(polymodel.PolyModel):
 class Link(Take2):
     """Links between Persons/Contacts
     """
-    nickname = db.StringProperty()
-    link = db.StringProperty()
-    link_to = db.ReferenceProperty(Contact, required=True)
 
 class Country(db.Model):
     """List of countries of the world"""
     ccode = db.StringProperty()
     country = db.StringProperty(required=True)
-
 
 class Address(Take2):
     """Point of interest as was loaded from the OSM database"""
@@ -172,13 +179,16 @@ class Email(Take2):
     # email
     email = db.EmailProperty()
 
+class OtherTag(db.Model):
+    """Describes the content of the other text field"""
+    # description
+    tag = db.StringProperty()
+
 class Other(Take2):
     """Any other information"""
-    # description
-    what = db.StringProperty()
+    tag = db.ReferenceProperty(OtherTag)
     # content
     text = db.StringProperty()
-
 
 class PlainKey(db.Model):
     """An index for quick search in names, last names, nicknames and places

@@ -14,12 +14,11 @@ from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate
-from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
-from take2export import encode_contact
+from take2dbm import Link, Email, Address, Mobile, Web, Other, Country, OtherTag
 from take2access import MembershipRequired, write_access, visible_contacts
-from take2search import encode_contact_for_webpage
+from take2view import encode_contact
 from take2geo import geocode_lookup
-from take2contact_index import check_and_store_key
+from take2index import check_and_store_key
 
 def save_take2_with_history(new,old):
     """Saves a new Take2 entity in the datastore. The new object
@@ -59,8 +58,6 @@ class ContactEdit(webapp.RequestHandler):
                     adr.put()
 
         contact = encode_contact(con, login_user, include_attic=True)
-        # adjust fields and add extra fields for website renderer
-        contact = encode_contact_for_webpage(contact, con, login_user)
 
         # render edit page
         template_values['contact'] = contact
@@ -384,7 +381,7 @@ class ContactDeattic(webapp.RequestHandler):
         contact = Contact.get(key)
         assert contact, "Object key: %s is not a Contact" % (key)
         # access check
-        assert contact.owned_by.key() == me.key(), "User %s cannot manipulate %s" % (str(t2.key()),str(contact.key()))
+        assert contact.owned_by.key() == login_user.key(), "User %s cannot manipulate %s" % (login_user.user.nickname(),str(contact.key()))
 
         logging.debug("ContactDeattic: %s key: %s" % (contact.name,key))
 
@@ -406,6 +403,13 @@ def prepareListOfCountries(selected=None):
         landlist.append(choice)
     return landlist
 
+def prepareListOfOtherTags():
+    """prepares a list of previously used tags in a  data structure ready for the template use"""
+    taglist = []
+    for tag in OtherTag.all():
+        taglist.append(tag.tag)
+    return taglist
+
 class Take2Edit(webapp.RequestHandler):
     """Edit existing properties or add something new"""
 
@@ -419,7 +423,7 @@ class Take2Edit(webapp.RequestHandler):
         if action == 'edit':
             t2 = Take2.get(key)
             # consistency checks on POSTed data
-            assert t2.class_name() == instance.title(), "Edit class name %s does not fit with object %s" % (instance,key)
+            assert t2.class_name() == instance, "Edit class name %s does not fit with object %s" % (instance,key)
             contact = t2.contact_ref
         else:
             # if a new property is added, key contains the contact key
@@ -440,7 +444,7 @@ class Take2Edit(webapp.RequestHandler):
 
         # define the html form fields for this take2 object
         form = []
-        if instance == 'address':
+        if instance == 'Address':
             titlestr = titlestr+" address"
             form_file = 'take2form_address.html'
             if action == 'edit':
@@ -454,38 +458,33 @@ class Take2Edit(webapp.RequestHandler):
                 template_values['adr_zoom'] = ", ".join(t2.adr_zoom)
             else:
                 template_values['landlist'] = prepareListOfCountries()
-        if instance == 'mobile':
+        elif instance == 'Mobile':
             titlestr = titlestr+" mobile phone"
             form_file = 'take2form_mobile.html'
             if action == 'edit':
                 template_values['mobile'] = t2.mobile
-        elif instance == 'web':
+        elif instance == 'Web':
             titlestr = titlestr+" website"
             form_file = 'take2form_web.html'
             if action == 'edit':
                 template_values['web'] = t2.web
             else:
                 template_values['web'] = 'http://'
-        elif instance == 'email':
+        elif instance == 'Email':
             titlestr = titlestr+" email"
             form_file = 'take2form_email.html'
             if action == 'edit':
                 template_values['email'] = t2.email
-        elif instance == 'other':
+        elif instance == 'Other':
             titlestr = titlestr+" misc. info"
             form_file = 'take2form_other.html'
             # prepare drop down menu with preselected relation
-            taglist = []
-            for tag in settings.OTHER_TAGS:
-                choice = {'choice': tag}
-                if action == 'edit' and tag == t2.what:
-                    choice['selected'] = "selected"
-                taglist.append(choice)
-            template_values['taglist'] = taglist
+            template_values['taglist'] = prepareListOfOtherTags()
             if action == 'edit':
+                template_values['tag'] = t2.tag.tag
                 template_values['text'] = t2.text
         else:
-            assert True, "Unhandled take2 class: %s" % (take2_instance)
+            assert False, "Unhandled take2 class: %s" % (take2_instance)
 
         template_values['titlestr'] = titlestr
         template_values['action'] = action
@@ -546,7 +545,7 @@ class Take2Save(webapp.RequestHandler):
         # OR if the action is new
         obj1 = None
         try:
-            if instance == 'address':
+            if instance == 'Address':
                 country = self.request.get("country", None)
                 template_values['landlist'] = prepareListOfCountries(country)
                 lat_raw = self.request.get("lat", "")
@@ -572,25 +571,30 @@ class Take2Save(webapp.RequestHandler):
                                   landline_phone=landline_phone, country=country_key,
                                   adr_zoom=adr_zoom,
                                   contact_ref=contact.key())
-            elif instance == 'mobile':
+            elif instance == 'Mobile':
                 mobile = db.PhoneNumber(self.request.get("mobile", ""))
                 if not obj0 or obj0.mobile != mobile:
                     obj1 = Mobile(parent=obj0,mobile=mobile, contact_ref=contact.key())
-            elif instance == 'web':
+            elif instance == 'Web':
                 web = db.Link(self.request.get("web", ""))
                 if not obj0 or obj0.web != web:
                     obj1 = Web(parent=obj0, web=web, contact_ref=contact.key())
-            elif instance == 'email':
+            elif instance == 'Email':
                 email = db.Email(self.request.get("email", ""))
                 if not obj0 or obj0.email != email:
                     obj1 = Email(parent=obj0, email=email, contact_ref=contact.key())
-            elif instance == 'other':
+            elif instance == 'Other':
                 what = self.request.get("what", "")
+                # look for existing tag in DB
+                tag = OtherTag.all().filter("tag =", what).get()
+                if not tag:
+                    tag = OtherTag(tag=what)
+                    tag.put()
                 text = self.request.get("text", "")
-                if not obj0 or (obj0.what != what or obj0.text != text):
-                    obj1 = Other(parent=obj0, what=what,text=text,contact_ref=contact.key())
+                if not obj0 or (obj0.tag != tag or obj0.text != text):
+                    obj1 = Other(parent=obj0, tag=tag,text=text,contact_ref=contact.key())
             else:
-                assert True, "Unhandled instance: %s" % (instance)
+                assert False, "Unhandled instance: %s" % (instance)
         except db.BadValueError as error:
             template_values['errors'] = [error]
         except ValueError as error:
