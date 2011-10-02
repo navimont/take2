@@ -7,7 +7,7 @@ handlers:
 - url: /static
   static_dir: static
 
-- url: /(export.*|import|importfile)
+- url: /(export.*|import.*)
   script: take2export.py
 
 - url: (/|/search.*)

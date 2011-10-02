@@ -9,7 +9,7 @@ DEBUG = os.environ['SERVER_SOFTWARE'].startswith('Dev')
 # select lates Django library
 use_library('django', '1.2')
 
-LOG_LEVEL=logging.WARNING
+LOG_LEVEL=logging.INFO
 if DEBUG:
     LOG_LEVEL=logging.DEBUG
 

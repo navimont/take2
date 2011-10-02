@@ -1,15 +1,15 @@
 {% extends "take2baseclass.html" %}
 
-{% block title %}
-Weschnitz Welcome.
-{% endblock %}
-
 {% block content %}
   {% for error in errors %}
       <div class="error">{{ error }}</div>
   {% endfor %}
 
-  <article id="signup">
+  <header>
+      <h1>Sign up</h1>
+  </header>
+
+  <article>
     <p>To use Weschnitz as your address book, you must first enter your own name.</p>
 
     <form action="/signup" method="get">
@@ -36,7 +36,7 @@ Weschnitz Welcome.
       </p>
 
       <h3>Terms and Conditions</h3>
-      <ul>
+      <ul id="signup">
         <li>Weschnitz will never make your personal data accessible to anyone without your consent.</li>
         <li>Weschnitz will do its best to keep your personal data save.</li>
         <li>Weschnitz will never display any advertisements on its site but this means that at some point we may

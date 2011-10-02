@@ -12,6 +12,8 @@ from google.appengine.ext import webapp
 from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
+from google.appengine.api import taskqueue
+from google.appengine.api import memcache
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate, LoginUser
 from take2dbm import Link, Email, Address, Mobile, Web, Other, Country, PlainKey, ContactIndex
 from take2access import get_current_user_template_values, visible_contacts, get_login_user
@@ -228,42 +230,99 @@ class Take2Import(webapp.RequestHandler):
             self.redirect(users.create_login_url("/import"))
             return
 
-        data = self.request.get("backup", None)
+        if memcache.get('import_status'):
+            # there is already an import going on
+            template_values['errors'] = ["Previous import is still processing. Please be patient..."]
+            path = os.path.join(os.path.dirname(__file__), "take2import_file.html")
+            self.response.out.write(template.render(path, template_values))
+            return
+        memcache.set('import_status', "Queued import task", time=30)
+        memcache.set('import_data', self.request.get("backup"), time=300)
+
+        logging.info("")
+
+        # start background process
+        taskqueue.add(url='/import_task', queue_name="import",
+                      params={'login_user': str(login_user.key()), 'format': self.request.get("format", None)})
+
+        # redirect to page which will show the import progress
+        self.redirect('/import_status')
+
+class Take2ImportStatus(webapp.RequestHandler):
+    """Monitor import progress"""
+
+    def get(self):
+        """Function displays a simple page to monitor the import progress"""
+        template_values = {}
+
+        status = memcache.get('import_status')
+        if status:
+            template_values['import_status'] = status
+        else:
+            self.redirect('/')
+            return
+
+        path = os.path.join(os.path.dirname(__file__), "take2import_status.html")
+        self.response.out.write(template.render(path, template_values))
+        return
+
+class Take2ImportTask(webapp.RequestHandler):
+    """Used by task queue"""
+
+    def post(self):
+        """Function is called asynchronously to import data sets to the DB and
+        delete existing data.
+        """
+
+        login_user = LoginUser.get(self.request.get("login_user", None))
+
+        status = memcache.get('import_status')
+        if not status:
+            logging.critical("Failed to retrieve import status from memcache.")
+            self.error(500)
+            return
+
+        data = memcache.get('import_data')
+        if not data:
+            logging.critical("Failed to retrieve import data from memcache.")
+            self.error(500)
+            return
+
+        logging.info("Retrieved %d bytes for processing." % (len(data)) )
+        memcache.set('import_status', "Parsing import data.", time=10)
+
+        format=self.request.get("format", None)
+        if format == 'JSON':
+            dbdump = json.loads(data)
+        else:
+            dbdump = yaml.load(data)
 
         # purge DB
-        logging.info("Delete DB entries for user %s" % (google_user.nickname()))
-        contact_entries = 0
-        take2_entries = 0
-        login_user_entries = 0
-        cindex_entries = 0
-        for c in Contact.all().filter("owned_by =", login_user):
+        logging.info("Import task starts deleting data...")
+        contact_entries = db.Query(Contact,keys_only=True)
+        contact_entries.filter("owned_by =", login_user)
+        count = 0
+        for c in contact_entries:
             # delete all dependent data
-            for us in LoginUser.all().filter("me =", c):
-                us.delete()
-                login_user_entries = login_user_entries +1
-            for ct in Take2.all().filter("contact_ref =", c):
-                ct.delete()
-                take2_entries = take2_entries + 1
-            for ci in ContactIndex.all().filter("contact_ref =", c):
-                ci.delete()
-                cindex_entries = cindex_entries +1
-            contact_entries = contact_entries + 1
-            c.delete()
-        logging.info("Deleted %d contacts, %d take2 %d contact index %d login user" % (contact_entries,take2_entries,cindex_entries,login_user_entries))
-
-        if data:
-            if format == 'JSON':
-                dbdump = json.loads(data)
-            else:
-                dbdump = yaml.load(data)
+            q_t = db.Query(Take2,keys_only=True)
+            q_t.filter("contact_ref =", c)
+            db.delete(q_t)
+            q_i = db.Query(ContactIndex,keys_only=True)
+            q_i.filter("contact_ref =", c)
+            db.delete(q_i)
+            count = count +1
+            memcache.set('import_status', "Deleting data: %d deleted." % (count), time=3)
+        db.delete(contact_entries)
+        logging.info("Import task deleted %d contact datasets" % (count))
 
         # dictionary will be filled with a reference to the freshly created person
-        # key using the former key as stored in the dbdump. Neede later for resolving
+        # key using the former key as stored in the dbdump. Needed later for resolving
         # the owned by references.
         old_key_to_new_key = {}
-        contact_entries = 0
-        take2_entries = 0
+        take2_entries = []
+        count = 0.0
         for contact in dbdump:
+            memcache.set('import_status', "Importing data: %3.0f%% done." % ((count/len(dbdump))*100.0), time=3)
             logging.debug("Import type: %s name: %s id: %s attic: %s" % (contact['type'],
                            contact['name'] if 'name' in contact else '<no name>',
                            contact['id'] if 'id' in contact else '<no id>',
@@ -284,12 +343,11 @@ class Take2Import(webapp.RequestHandler):
             if 'timestamp' in contact:
                 dt,us= contact['timestamp'].split(".")
                 entry.timestamp = datetime.datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S")
-            # all data collected. store new entry
-            contact_entries = contact_entries + 1
             entry.put()
             # remember the key from the imported file for later dependency resolve
             if 'key' in contact:
                 old_key_to_new_key[contact['key']] = entry.key()
+            count = count+1
 
             # check for all take2 objects
             for take2 in [Email,Web,Address,Mobile,Link,Other]:
@@ -315,7 +373,7 @@ class Take2Import(webapp.RequestHandler):
                                 obj.nickname = m['nickname']
                             link_to_references = (entry.key(),m['link_to'])
                         if classname == 'address':
-                            obj = Address(adr=m['adr'], contact_ref=entry)
+                            obj = Address(adr=m['adr'], contact_ref=entry.key())
                             if 'location_lat' in m and 'location_lon' in m:
                                 obj.location = db.GeoPt(lat=float(m['location_lat']),lon=float(m['location_lon']))
                             if 'landline_phone' in m:
@@ -334,27 +392,38 @@ class Take2Import(webapp.RequestHandler):
                                 obj.timestamp = datetime.datetime.strptime(dt, "%Y-%m-%dT%H:%M:%S")
                             if 'attic' in m:
                                 obj.attic = m['attic']
-                            take2_entries = take2_entries + 1
-                            obj.put()
+                            take2_entries.append(obj)
 
-            # generate search keys for new contact (only non-attic)
-            check_and_store_key(entry)
+        memcache.set('import_status', "Store dependent entries.", time=30)
 
         #
         # Resolve the link_to references
+        # and (if possible) the reference of the LoginUser to his/her own Person entry
         #
-        for link in Link.all():
-            # This will retrieve the key without doing a get for the object.
-            key = Link.link_to.get_value_for_datastore(link).id()
-            link.link_to = old_key_to_new_key[key]
-            link.put()
+        login_user.me = None
+        login_user.put()
+        for t2 in take2_entries:
+            if t2.class_name() == "Link":
+                key = Link.link_to.get_value_for_datastore(t2).id()
+                t2.link_to = old_key_to_new_key[key]
+            if t2.class_name() == "Email":
+                if t2.email == login_user.user.email():
+                    login_user.me = t2.contact_ref
+                    login_user.put()
+                    logging.info("Resolved LoginUsers Person: %s using email: %s" % (t2.contact_ref.name, t2.email))
 
-        logging.info("Added %d contacts and %d dependent datasets" % (contact_entries,take2_entries))
-
-        self.redirect('/search')
+        #
+        # Bulk store new entries
+        #
+        logging.info("Import task added %d contacts. Now store their %d dependent datasets" % (count,len(take2_entries)))
+        db.put(take2_entries)
+        logging.info("Import task done.")
+        memcache.delete('import_status')
 
 application = webapp.WSGIApplication([('/importfile', Take2Import),
                                       ('/import', Take2SelectImportFile),
+                                      ('/import_status', Take2ImportStatus),
+                                      ('/import_task', Take2ImportTask),
                                       ('/export.*', Take2Export),
                                      ],settings.DEBUG)
 

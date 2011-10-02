@@ -19,6 +19,7 @@ from take2export import encode_contact
 from take2access import MembershipRequired, write_access, visible_contacts
 from take2search import encode_contact_for_webpage
 from take2geo import geocode_lookup
+from take2contact_index import check_and_store_key
 
 def save_take2_with_history(new,old):
     """Saves a new Take2 entity in the datastore. The new object
@@ -35,7 +36,7 @@ class ContactEdit(webapp.RequestHandler):
     """present a contact including old data (attic) for editing"""
 
     @MembershipRequired
-    def get(self, user=None, me=None, template_values={}):
+    def get(self, login_user=None, template_values={}):
         contact_key = self.request.get("key", None)
 
         assert contact_key
@@ -43,7 +44,9 @@ class ContactEdit(webapp.RequestHandler):
         con = Contact.get(contact_key)
 
         # access rights check
-        write_access(con,me)
+        if not write_access(con,login_user):
+            self.error(500)
+            return
 
         # call here geocoding for addresses which don't have filled the geo position
         q_adr = Address.all().filter("attic =", False).filter("contact_ref =", con)
@@ -55,9 +58,9 @@ class ContactEdit(webapp.RequestHandler):
                     adr.adr_zoom = loc['adr_zoom']
                     adr.put()
 
-        contact = encode_contact(con, include_attic=True, me=me)
+        contact = encode_contact(con, login_user, include_attic=True)
         # adjust fields and add extra fields for website renderer
-        contact = encode_contact_for_webpage(contact, con, me)
+        contact = encode_contact_for_webpage(contact, con, login_user)
 
         # render edit page
         template_values['contact'] = contact
@@ -69,19 +72,21 @@ class PersonEdit(webapp.RequestHandler):
     """Edit existing person's data"""
 
     @MembershipRequired
-    def get(self, user=None, me=None, template_values={}):
+    def get(self, login_user=None, template_values={}):
         person_key = self.request.get("key", "")
 
         # this is the person we edit
         person = Person.get(person_key)
 
         # access rights check
-        write_access(person, me)
+        if not write_access(person,login_user):
+            self.error(500)
+            return
 
         template_values['link'] = None
 
         # define the html form fields for this object
-        if me.key() == person.key():
+        if login_user.me.key() == person.key():
             template_values['myself'] = True
         titlestr = "Edit Person data"
         template_values['name'] = "%s %s" % (person.name,person.lastname)
@@ -91,7 +96,7 @@ class PersonEdit(webapp.RequestHandler):
         template_values['birthday'] = person.birthday
         # find relation to this person
         q_link = Link.all()
-        q_link.filter("contact_ref =", me)
+        q_link.filter("contact_ref =", login_user.me)
         q_link.filter("link_to =", person)
         link = q_link.fetch(1)
         if len(link):
@@ -116,7 +121,7 @@ class PersonNew(webapp.RequestHandler):
     """Add a new personal contact"""
 
     @MembershipRequired
-    def get(self, user=None, me=None, template_values={}):
+    def get(self, login_user=None, template_values={}):
         person_key = self.request.get("key", None)
 
         if person_key:
@@ -145,7 +150,7 @@ class PersonSave(webapp.RequestHandler):
     """Update/Save contact"""
 
     @MembershipRequired
-    def post(self, user=None, me=None, template_values={}):
+    def post(self, login_user=None, template_values={}):
         contact_key = self.request.get("key", "")
         action = self.request.get("action", "")
 
@@ -156,9 +161,11 @@ class PersonSave(webapp.RequestHandler):
             instance = contact.class_name().lower()
             myself = self.request.get("myself", False)
             # find the link between the edited person and myself (the one who is logged in)
-            link = Link.all().filter("contact_ref =", me).filter("link_to =", contact).fetch(1)
+            link = Link.all().filter("contact_ref =", login_user.me).filter("link_to =", contact).fetch(1)
             # access rights check
-            write_access (contact, me)
+            if not write_access (contact, login_user):
+                self.error(500)
+                return
         else:
             link = []
 
@@ -177,7 +184,7 @@ class PersonSave(webapp.RequestHandler):
                 person = Person(name=self.request.get("firstname", ""),
                                 lastname=self.request.get("lastname", ""))
                 person.birthday = FuzzyDate(day=day,month=month,year=year)
-                person.owned_by = me
+                person.owned_by = login_user
                 person.put()
                 contact = person
             else:
@@ -203,7 +210,7 @@ class PersonSave(webapp.RequestHandler):
         link1 = None
         if not link0 or (link0.link != link_link or link0.nickname != link_nickname):
             # Relation is new or was changed. Create new link
-            link1 = Link(parent=link0, contact_ref=me,
+            link1 = Link(parent=link0, contact_ref=login_user.me,
                          nickname=link_nickname,
                          link=link_link,
                          link_to=contact)
@@ -211,7 +218,7 @@ class PersonSave(webapp.RequestHandler):
         db.run_in_transaction(save_take2_with_history, new=link1, old=link0)
 
         # update visibility list
-        visible_contacts(me, refresh=True)
+        visible_contacts(login_user, refresh=True)
 
         self.redirect('/editcontact?key=%s' % str(contact.key()))
 
@@ -220,7 +227,7 @@ class CompanyEdit(webapp.RequestHandler):
     """Edit existing company data"""
 
     @MembershipRequired
-    def post(self, user=None, me=None, template_values={}):
+    def post(self, login_user=None, template_values={}):
         action,company_key = self.request.get("action", "").split("_")
         assert action in ['edit','attic','deattic'], "Undefined action: %s" % (action)
 
@@ -267,7 +274,7 @@ class CompanyNew(webapp.RequestHandler):
     """Edit existing company or add a new one"""
 
     @MembershipRequired
-    def post(self, user=None, me=None, template_values={}):
+    def post(self, login_user=None, template_values={}):
         action,company_key = self.request.get("action", "").split("_")
         assert action in ['edit','attic','deattic'], "Undefined action: %s" % (action)
 
@@ -290,7 +297,7 @@ class CompanySave(webapp.RequestHandler):
     """Update/Save contact"""
 
     @MembershipRequired
-    def post(self, user=None, me=None, template_values={}):
+    def post(self, login_user=None, template_values={}):
         company_key = self.request.get("key", "")
         action = self.request.get("action", "")
 
@@ -350,13 +357,15 @@ class ContactAttic(webapp.RequestHandler):
     """Attic (archive) a contact"""
 
     @MembershipRequired
-    def get(self, user=None, me=None, template_values={}):
+    def get(self, login_user=None, template_values={}):
         key = self.request.get("key", "")
 
         contact = Contact.get(key)
         assert contact, "Object key: %s is not a Contact" % key
         # access check
-        assert write_access(contact, me)
+        if not write_access(contact, login_user):
+            self.error(500)
+            return
 
         logging.debug("ContactAttic: %s key: %s" % (contact.name,key))
 
@@ -369,7 +378,7 @@ class ContactDeattic(webapp.RequestHandler):
     """De-Attic (undelete) a contact"""
 
     @MembershipRequired
-    def get(self, user=None, me=None, template_values={}):
+    def get(self, login_user=None, template_values={}):
         key = self.request.get("key", "")
 
         contact = Contact.get(key)
@@ -401,7 +410,7 @@ class Take2Edit(webapp.RequestHandler):
     """Edit existing properties or add something new"""
 
     @MembershipRequired
-    def get(self, user=None, me=None, template_values={}):
+    def get(self, login_user=None, template_values={}):
         action = self.request.get("action", "")
         instance = self.request.get("instance", "")
         key = self.request.get("key", "")
@@ -419,7 +428,9 @@ class Take2Edit(webapp.RequestHandler):
         assert contact.class_name() in ['Person','Contact'], "Object %s key: %s is not a Contact" % (contact.class_name(),str(contact.key()))
 
         # access check
-        assert write_access(contact, me)
+        if not write_access(contact, login_user):
+            self.error(500)
+            return
 
         logging.debug("contact: %s action: %s instance: %s key: %s" %
                       (contact.name,action,instance,key))
@@ -495,7 +506,7 @@ class Take2Save(webapp.RequestHandler):
     """Save users/properties"""
 
     @MembershipRequired
-    def post(self, user=None, me=None, template_values={}):
+    def post(self, login_user=None, template_values={}):
         instance = self.request.get("instance", "")
         key = self.request.get("key", "")
         action = self.request.get("action", "")
@@ -514,7 +525,9 @@ class Take2Save(webapp.RequestHandler):
         assert contact.class_name() in ['Person','Contact'], "Object %s key: %s is not a Contact" % (contact.class_name(),str(contact.key()))
 
         # access check
-        assert write_access(contact, me)
+        if not write_access(contact, login_user):
+            self.error(500)
+            return
 
         logging.debug("Take2Save; contact: %s instance: %s key: %s" % (contact.name,instance,key))
 
@@ -598,7 +611,7 @@ class Take2Attic(webapp.RequestHandler):
     """Attic (archive) a property"""
 
     @MembershipRequired
-    def get(self, user=None, me=None, template_values={}):
+    def get(self, login_user=None, template_values={}):
         instance = self.request.get("instance", "")
         key = self.request.get("key", "")
 
@@ -608,7 +621,9 @@ class Take2Attic(webapp.RequestHandler):
         contact = t2.contact_ref
         assert contact.class_name() in ['Person','Contact'], "Object %s key: %s is not a Contact" % (contact.class_name(),str(contact.key()))
         # access check
-        assert write_access(contact, me)
+        if not write_access(contact, login_user):
+            self.error(500)
+            return
 
 
         logging.debug("Attic: %s instance: %s key: %s" % (contact.name,instance,key))
@@ -622,7 +637,7 @@ class Take2Deattic(webapp.RequestHandler):
     """Re-activate a property from archive"""
 
     @MembershipRequired
-    def get(self, user=None, me=None, template_values={}):
+    def get(self, login_user=None, template_values={}):
         instance = self.request.get("instance", "")
         key = self.request.get("key", "")
 
@@ -632,7 +647,9 @@ class Take2Deattic(webapp.RequestHandler):
         contact = t2.contact_ref
         assert contact.class_name() in ['Person','Contact'], "Object %s key: %s is not a Contact" % (contact.class_name(),str(contact.key()))
         # access check
-        assert write_access(contact, me)
+        if not write_access(contact, login_user):
+            self.error(500)
+            return
 
         logging.debug("De-attic: %s instance: %s key: %s" % (contact.name,instance,key))
 

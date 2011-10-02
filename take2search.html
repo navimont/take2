@@ -1,34 +1,27 @@
 {% extends "take2baseclass.html" %}
 
-{% block title %}
-Search for address
-{% endblock %}
-
 {% block content %}
-  <section id="birthdays">
-    {% if signed_in %}
-      <!-- Show birthdays for signed in users -->
-      {% if birthdays %}
-        <header>
+    <header>
+      {% if signed_in %}
+        <!-- Show birthdays for signed in users -->
+        {% if birthdays %}
           <h1>Birthdays</h1>
-        </header>
-        <ul>
-          {% for person in birthdays %}
-            <li>{{ person.name }} {% if person.nickname %} ({{ person.nickname }}) {% endif %} *{{ person.birthday }}
-          {% endfor %}
-        </ul>
+          <ul id="birthdays">
+            {% for person in birthdays %}
+              <li>{{ person.name }} {% if person.nickname %} ({{ person.nickname }}) {% endif %} *{{ person.birthday }}
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% else %}
+        <p>You need to sign in to use this site (a google account will do).</p>
       {% endif %}
-    {% else %}
-      <p>You need to sign in to use this site (a google account will do).</p>
-    {% endif %}
-  </section>
-  {% if result %}
-    <section id="results_section">
-      {% if query %}
-        <header>
-          <h1>{{ result|length }} Results for "{{ query|escape }}":</h1>
-        </header>
-      {% endif %}
+    </header>
+    {% if result %}
+        {% if query %}
+          <header>
+            <h1>{{ result|length }} Results for "{{ query|escape }}":</h1>
+          </header>
+        {% endif %}
       {% for contact in result %}
         <article id="results">
           <aside class="contact_navigation">
@@ -50,98 +43,44 @@ Search for address
               {% endif %}
               {{contact.lastname}}
               {% if contact.birthday %}
-                  &nbsp;*{{contact.birthday}}
+                  &nbsp;*{{contact.birthday}} {{contact.birthmonth}}
               {% endif %}
             </h2>
-            {% if contact.relation_to_me %}
+            {% for relation in contact.relations %}
               <h3>
-                {{contact.relation_to_me}}
+                {{relation}}
               </h3>
-            {% endif %}
+            {% endfor %}
           </header>
-          <aside class="contact_links">
-            {% if contact.link %}
-              <hr>
-              {% for link in contact.link %}
-                <a id="contact_link" href="/search?key={{link.link_to}}">
-                {{link.name}}
-                {% if link.nickname %}
-                    ({{link.nickname}})
-                {% endif %}
-                {{link.lastname}}
-                </a>
+          <!-- properties for this contact -->
+          {% for take2 in contact.take2 %}
+            <hr>
+            {% if take2.class_name == 'Link' %}
+              {% for data in take2.data %}
+                <a id="contact_link" href="/search?key={{data.link_to}}">{{data.data}}</a>
                 {% if not forloop.last %}
                   ,&nbsp;
                 {% endif%}
               {% endfor %}
-            {% endif %}
-          </aside>
-          <!-- properties for this contact -->
-          {% if contact.mobile %}
-            <hr>
-            <ul>
-              {% for mobile in contact.mobile %}
-                <li>{{mobile.mobile}}
-              {% endfor %}
-            </ul>
-          {% endif %}
-          {% if contact.web %}
-            <hr>
-            <ul>
-              {% for web in contact.web %}
-                <li><a id="contact_link" href="{{web.web}}">{{web.web}}</a></li>
-              {% endfor %}
-            </ul>
-          {% endif %}
-          {% if contact.email %}
-            <hr>
-            <ul>
-              {% for email in contact.email %}
-                <li>{{email.email}}
-              {% endfor %}
-            </ul>
-          {% endif %}
-          {% if contact.address %}
-            <ul>
-              {% for address in contact.address %}
-              <hr>
-                {% for adr_line in address.adr %}
-                    <li>{{adr_line}}</li>
+            {% else %}
+              <ul>
+                {% for data in take2.data %}
+                  <li>{{data.data}}</li>
                 {% endfor %}
-                <li><strong>{{address.country}}</strong></li>
-                {% if address.landline_phone %}
-                    <li>phone: {{address.landline_phone}}</li>
-                {% endif %}
-                {% if address.adr_zoom %}
-                    <li>
-                    {% for place in address.adr_zoom %}
-                        <em>{{ place }}&nbsp;</em>
-                    {% endfor %}
-                    </li>
-                {% endif %}
-              {% endfor %}
-            </ul>
-          {% endif %}
-          {% if contact.other %}
-            <hr>
-            <ul>
-              {% for other in contact.other %}
-                <li>{{other.what}}:&nbsp;{{other.text}}
-              {% endfor %}
-            </ul>
-          {% endif %}
+              </ul>
+            {% endif %}
+          {% endfor %}
         </article>
       {% endfor %}
-    </section>
-  {% else %}
-    {% if signed_in %}
-      <section id="results">
-        {% if query %}
-            <h1>Nothing found for {{ query|escape }}</h1>
-        {% endif %}
-      </section>
+    {% else %}
+      {% if signed_in %}
+        <header>
+          {% if query %}
+              <h1>Nothing found for {{ query|escape }}</h1>
+          {% endif %}
+        <header>
+      {% endif %}
     {% endif %}
-  {% endif %}
   <footer>
   </footer>
 {% endblock %}

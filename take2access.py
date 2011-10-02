@@ -14,7 +14,7 @@ from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from take2contact_index import check_and_store_key
 
-def write_access(obj, me):
+def write_access(obj, login_user):
     """Makes sure that me can edit the object
 
     Logs violations.
@@ -22,15 +22,15 @@ def write_access(obj, me):
     """
 
     if not obj.class_name() in ['Person','Company']:
-        if obj.issubclass(Take2):
+        if not obj.issubclass(Take2):
             logging.critical("Unknown object type: %s" % obj.class_name())
             return False
         contact = obj.contact_ref
     else:
         contact = obj
 
-    if contact.owned_by.key() != me.key():
-        logging.critical("User %s %s cannot manipulate %s" % (contact.name, str(contact.key()),str(obj.key())))
+    if contact.owned_by.key() != login_user.key():
+        logging.critical("User %s %s cannot manipulate %s" % (login_user.user.nickname, login_user.user.user_id,str(obj.key())))
         return False
 
     return True
@@ -85,17 +85,22 @@ def MembershipRequired(target):
         self.response.out.write(template.render(path, []))
         return
 
+    def redirectToLoginPage(self):
+        self.redirect(users.create_login_url(self.request.uri))
+        return
+
     def wrapper (self):
         # Add extra parameters
-        kwargs = {'user': user,
-                  'me': me,
-                  'template_values': get_current_user_template_values(user, self.request.uri)}
+        kwargs = {'login_user': login_user,
+                  'template_values': get_current_user_template_values(google_user, self.request.uri)}
         return target(self, **kwargs)
 
     # find my own Person object
     google_user = users.get_current_user()
+    if not google_user:
+        return redirect_to_login_page
     login_user = get_login_user(google_user)
-    if not me:
+    if not login_user.me:
         return redirectToSignupPage
     else:
         logging.debug("returning wrapper")
@@ -167,28 +172,23 @@ class Take2Signup(webapp.RequestHandler):
             template_values['errors'].append("You must also acknowledge the terms and conditions.")
 
         if not template_values['errors']:
+            person = Person(name=name, lastname=self.request.get("lastname", None))
             try:
-                person = Person(name=name, lastname=self.request.get("lastname", None))
-                try:
-                    birthday = int(self.request.get("birthday", None))
-                except ValueError:
-                    birthday = 0
-                try:
-                    birthmonth = int(self.request.get("birthmonth", None))
-                except ValueError:
-                    birthmonth = 0
-                person.birthday = FuzzyDate(day=birthday,month=birthmonth,year=0000)
-                person.owned_by = login_user
-                person.put()
-                # generate search keys for new contact
-                check_and_store_key(person)
-                # Connect to LoginUser
-                login_user.me = person
-                login_user.put()
-            except db.BadValueError as error:
-                template_values['errors'] = [error]
-            except ValueError as error:
-                template_values['errors'] = [error]
+                birthday = int(self.request.get("birthday", None))
+            except ValueError:
+                birthday = 0
+            try:
+                birthmonth = int(self.request.get("birthmonth", None))
+            except ValueError:
+                birthmonth = 0
+            person.birthday = FuzzyDate(day=birthday,month=birthmonth,year=0000)
+            person.owned_by = login_user
+            person.put()
+            # generate search keys for new contact
+            check_and_store_key(person)
+            # Connect to LoginUser
+            login_user.me = person
+            login_user.put()
 
         if len(template_values['errors']):
             # prepare list of days and months
