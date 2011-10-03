@@ -129,39 +129,26 @@ body {
   float: right;
 }
 
+#masthead ul {
+  list-style: none;
+}
+
 /* general layout for centered text */
 
-#birthdays, #results, #results_section, .error, #signup {
+/* center all */
+#page_content {
   margin-top: 14px;
   margin-left: 160px;
   margin-right: 160px;
   width: 672px;
 }
 
-
 .error {
   padding 10px;
 }
 
-#signup {
-  background-color: #64D8B1;
-  padding: 10px;
-}
-
-#signup li {
-  list-style-position: inside;
-}
-
-#birthdays li, #results li {
-  list-style: none;
-  padding-left: 10px;
-  padding-bottom: 10px;
-}
-
-/* one results box per person */
-#results {
-  margin-left: 0px;
-  margin-right: 0px;
+article {
+  margin-top: 12px;
   min-height: 80px;
   padding-left: 10px;
   padding-right: 10px;
@@ -169,7 +156,7 @@ body {
 }
 
 /* floating navigation box alongside a #result */
-.contact_navigation {
+.contact_navigation, .contact_edit {
   float: left;
 	width: 66px;
 	padding: 5px;
@@ -183,6 +170,12 @@ body {
   padding: 0px;
   margin-top: 5px;
   line-height: 30%;
+}
+
+.contact_edit {
+  text-align: right;
+  padding: 0px 5px 0px 10px;
+  margin-top: 5px;
 }
 
 /* all links on this page */
@@ -257,15 +250,23 @@ px      68    160    252    344    436    */
 /*********************************************************/
 
 
-.property_header {
-  background-color: #9db864;
-  display: inline;
+.take2_header {
+  width: 652px;
+  background-color: #30C090;
 }
 
-.property_header_text {
+.take2_header_icon {
+  width: 24px;
+  height: 24px;
+  float: left;
+  margin-top: -5px;
+  padding-right: 10px;
+  margin-bottom: 10px;
+}
+
+.take2_header_text {
     font-size: 12px;
     color: #333333;
-    font-weight: bold;
 }
 
 .input_text {
@@ -283,3 +284,19 @@ hr {
   margin-bottom: 10px;
   height: 2px;
 }
+
+#signup {
+  list-style-position: inside;
+}
+
+#birthdays {
+  padding: 10px;
+}
+
+#birthdays li, #results li {
+  list-style: none;
+  padding-left: 10px;
+  padding-bottom: 10px;
+}
+
+

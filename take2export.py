@@ -15,7 +15,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import taskqueue
 from google.appengine.api import memcache
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate, LoginUser, OtherTag
-from take2dbm import Link, Email, Address, Mobile, Web, Other, Country, PlainKey, ContactIndex
+from take2dbm import Email, Address, Mobile, Web, Other, Country, PlainKey, ContactIndex
 from take2access import get_current_user_template_values, visible_contacts, get_login_user
 from take2index import check_and_store_key
 
@@ -26,7 +26,7 @@ def encode_take2(contact, include_attic=False):
     as the key and a list of properties as values.
     """
     restypes = {}
-    for take2 in [Email,Web,Address,Mobile,Link,Other]:
+    for take2 in [Email,Web,Address,Mobile,Other]:
         restypes[take2.class_name().lower()] = []
 
     q_obj = Take2.all()
@@ -45,11 +45,6 @@ def encode_take2(contact, include_attic=False):
             res['email'] = obj.email
         elif obj.class_name() == "Web":
             res['web'] = obj.web
-        elif obj.class_name() == "Link":
-            res['link'] = obj.link
-            res['nickname'] = obj.nickname
-            # avoid loading the actual linked object
-            res['link_to'] = str(Link.link_to.get_value_for_datastore(obj))
         elif obj.class_name() == "Address":
             if obj.location:
                 res['location_lat'] = obj.location.lat
@@ -104,6 +99,8 @@ def encode_contact(contact, login_user, include_attic=False, is_admin=False):
         return res
 
     if contact.class_name() == "Person":
+        if contact.nickname:
+            res['nickname'] = contact.nickname
         if contact.birthday.has_year() or contact.birthday.has_month() or contact.birthday.has_day():
             res['birthday'] = "%04d-%02d-%02d" % (contact.birthday.year,contact.birthday.month,contact.birthday.day)
     elif contact.class_name() == "Company":
@@ -121,6 +118,11 @@ def encode_contact(contact, login_user, include_attic=False, is_admin=False):
                     'user_id': contact.owned_by.user.user_id(),
                     'federated_identity': contact.owned_by.user.federated_identity(),
                     'federated_provider': contact.owned_by.user.federated_provider()}
+    # references other contact
+    if contact.relation:
+        res['back_rel'] = contact.relation
+    if back_ref:
+        res['back_ref'] = contact.back_ref
 
     # takes care of the different take2 object structures
     res.update(encode_take2(contact, include_attic))
@@ -319,6 +321,7 @@ class Take2ImportTask(webapp.RequestHandler):
         # key using the former key as stored in the dbdump. Needed later for resolving
         # the owned by references.
         old_key_to_new_key = {}
+        link_to_references = []
         take2_entries = []
         count = 0.0
         for contact in dbdump:
@@ -334,6 +337,8 @@ class Take2ImportTask(webapp.RequestHandler):
                 if 'birthday' in contact:
                     year,month,day = contact['birthday'].split('-')
                     entry.birthday = FuzzyDate(day=int(day),month=int(month),year=int(year))
+                if 'nickname' in contact:
+                    entry.nickname = contact['nickname']
             if contact['type'] == "company":
                 entry = Company(name=contact['name'])
             # importer owns all the data
@@ -350,8 +355,7 @@ class Take2ImportTask(webapp.RequestHandler):
             count = count+1
 
             # check for all take2 objects
-            for take2 in [Email,Web,Address,Mobile,Link,Other]:
-                classname = take2.class_name().lower()
+            for classname in ['email','link','web','address','mobile','other']:
                 if classname in contact:
                     for m in contact[classname]:
                         obj = None
@@ -373,10 +377,7 @@ class Take2ImportTask(webapp.RequestHandler):
                         if classname == 'link':
                             # save the link_to key from the imported data in the link_to
                             # property for rater resolve
-                            obj = Link(link_to=Key.from_path('Contact', m['link_to']), contact_ref=entry)
-                            if 'nickname' in m:
-                                obj.nickname = m['nickname']
-                            link_to_references = (entry.key(),m['link_to'])
+                            link_to_references.append((entry.key(),m['link_to']))
                         if classname == 'address':
                             obj = Address(adr=m['adr'], contact_ref=entry.key())
                             if 'location_lat' in m and 'location_lon' in m:
@@ -402,20 +403,29 @@ class Take2ImportTask(webapp.RequestHandler):
         memcache.set('import_status', "Store dependent entries.", time=30)
 
         #
-        # Resolve the link_to references
-        # and (if possible) the reference of the LoginUser to his/her own Person entry
+        # Resolve (if possible) the reference of the LoginUser to his/her own Person entry
         #
         login_user.me = None
         login_user.put()
         for t2 in take2_entries:
-            if t2.class_name() == "Link":
-                key = Link.link_to.get_value_for_datastore(t2).id()
-                t2.link_to = old_key_to_new_key[key]
             if t2.class_name() == "Email":
                 if t2.email == login_user.user.email():
                     login_user.me = t2.contact_ref
                     login_user.put()
                     logging.info("Resolved LoginUsers Person: %s using email: %s" % (t2.contact_ref.name, t2.email))
+
+        #
+        # Back references to people
+        #
+        for parent,child_old_key in link_to_references:
+            logging.debug(parent.name)
+            logging.debug(child_old_key)
+            # find child's new key
+            key = old_key_to_new_key[child_old_key]
+            # update child with back reference
+            child = Contact.get(key)
+            child.back_ref = parent
+            child.put()
 
         #
         # Bulk store new entries

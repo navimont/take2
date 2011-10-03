@@ -8,7 +8,7 @@ import os
 import calendar
 from google.appengine.ext import db
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate, ContactIndex, PlainKey
-from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
+from take2dbm import Email, Address, Mobile, Web, Other, Country
 from take2access import visible_contacts
 
 class Take2Overview(object):
@@ -29,6 +29,20 @@ class Take2View(object):
         self.key = str(obj.key())
         self.class_name = obj.class_name()
         self.attic = obj.attic
+
+class AffixView(Take2View):
+    def __init__(self, obj):
+        super(AffixView, self).__init__(obj)
+        # overwrite wrong class_name (would be Person)
+        self.class_name = obj.class_name()
+        self.name = obj.name
+        self.data = obj.name
+        if obj.class_name() == 'Person':
+            self.lastname = obj.lastname if obj.lastname else ""
+            self.data = "%s %s" % (self.name,self.lastname)
+            if obj.nickname:
+                self.nickname = obj.nickname
+                self.data = "%s (%s) %s" % (self.name,self.nickname,self.lastname)
 
 class EmailView(Take2View):
     def __init__(self, obj):
@@ -64,32 +78,18 @@ class AddressView(Take2View):
         self.adr_zoom = obj.adr_zoom if obj.adr_zoom else ""
         self.data = "%s %s" % (", ".join(self.adr),self.country)
 
-class LinkView(Take2View):
-    def __init__(self,obj):
-        super(LinkView, self).__init__(obj)
-        if obj.nickname:
-            self.data = "%s (%s) %s" % (obj.link_to.name,obj.nickname,obj.link_to.lastname)
-        else:
-            self.data = "%s %s" % (obj.link_to.name,obj.link_to.lastname)
-        self.link = obj.link
-        self.link_to = str(obj.link_to.key())
-        self.nickname = obj.nickname
-        self.name = obj.link_to.name
-        self.lastname = obj.link_to.lastname
-
 class ContactView():
     def __init__(self,contact):
         self.name = contact.name
         self.attic = contact.attic
         self.key = str(contact.key())
         self.class_name = contact.class_name()
+        self.affix = Take2Overview('Contacts, Family & Friends','Contact')
         self.email = Take2Overview('Email','Email')
         self.mobile = Take2Overview('Mobile Phone','Mobile')
         self.web = Take2Overview('Web site','Web')
-        self.link = Take2Overview('Contacts, friends & family','Link')
         self.other = Take2Overview('Miscellaneous','Other')
         self.address = Take2Overview('Street address','Address')
-        self.relations = []
 
     def append_relation(self,relation):
         self.relations.append(relation)
@@ -101,18 +101,20 @@ class ContactView():
             self.email.append_take2(EmailView(obj))
         elif obj.class_name() == "Web":
             self.web.append_take2(WebView(obj))
+        elif obj.class_name() == "Person":
+            self.affix.append_take2(AffixView(obj))
+        elif obj.class_name() == "Company":
+            self.affix.append_take2(AffixView(obj))
         elif obj.class_name() == "Mobile":
             self.mobile.append_take2(MobileView(obj))
         elif obj.class_name() == "Other":
             self.other.append_take2(OtherView(obj))
         elif obj.class_name() == "Address":
             self.address.append_take2(AddressView(obj))
-        elif obj.class_name() == "Link":
-            self.link.append_take2(LinkView(obj))
         # create a take2 list of Take2Overview objects but
         # only those which contain data
         self.take2 = []
-        for t2 in [self.link,self.email,self.mobile,self.web,self.address,self.other]:
+        for t2 in [self.affix,self.email,self.mobile,self.web,self.address,self.other]:
             if t2.data:
                 self.take2.append(t2)
 
@@ -155,12 +157,22 @@ def encode_contact(contact, login_user, include_attic=False):
         if contact.birthday.has_day():
             result.birthday = contact.birthday.day
 
-    # Relation regarding this person (who points towards this contact and why?)
-    q_rel = Link.all()
-    q_rel.filter("link_to =", contact)
-    for rel in q_rel:
-        if rel.link:
-            result.append_relation(rel.link)
+    # nickname
+    if contact.nickname:
+        result.nickname = contact.nickname
+
+    # Relation back to the middleman
+    if contact.back_ref:
+        result.relation = contact.back_rel if contact.back_rel else ""
+        result.middleman = contact.back_ref.name
+        result.middleman_ref = str(contact.back_ref.key())
+
+    # Relation(s) going out from this person towards others
+    result.contacts = []
+    # for con in Contact.all().filter("back_ref =", contact):
+    for con in contact.affix:
+        if not con.attic or include_attic:
+            result.append_take2(con)
 
     # can I edit the contact data?
     if login_user and login_user.me:
@@ -177,7 +189,6 @@ def encode_contact(contact, login_user, include_attic=False):
         # do only enclose non-attic take2 properties unless attic parameter is set
         if obj.attic and not include_attic:
             continue
-
         result.append_take2(obj)
 
     return result

@@ -18,7 +18,7 @@ from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import memcache
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate, ContactIndex, PlainKey
-from take2dbm import Link, Email, Address, Mobile, Web, Other, Country
+from take2dbm import Email, Address, Mobile, Web, Other, Country
 from take2access import get_login_user, get_current_user_template_values, MembershipRequired, visible_contacts
 from take2index import lookup_contacts
 from take2view import encode_contact
@@ -124,10 +124,7 @@ class Take2Search(webapp.RequestHandler):
                         jubilee['birthday'] = "%d %s" % (con.birthday.get_day(),
                                                         calendar.month_name[con.birthday.get_month()])
                         jubilee['name'] = con.name
-                        # find the nickname
-                        link = Link.all().filter("link_to =", ckey).filter("contact =", login_user.me).get()
-                        if link:
-                            jubilee['nickname'] = link.nickname
+                        jubilee['nickname'] = con.nickname if con.nickname else ""
                         template_values['birthdays'].append(jubilee)
                 # store in memcache
                 memcache.set('birthdays',template_values['birthdays'],time=60*60*24,namespace=str(login_user.key()))

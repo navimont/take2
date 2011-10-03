@@ -55,9 +55,9 @@
           <!-- properties for this contact -->
           {% for take2 in contact.take2 %}
             <hr>
-            {% if take2.class_name == 'Link' %}
+            {% if take2.class_name == 'Affix' %}
               {% for data in take2.data %}
-                <a id="contact_link" href="/search?key={{data.link_to}}">{{data.data}}</a>
+                <a id="contact_link" href="/search?key={{data.key}}">{{data.data}}</a>
                 {% if not forloop.last %}
                   ,&nbsp;
                 {% endif%}

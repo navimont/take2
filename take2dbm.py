@@ -108,6 +108,16 @@ class Contact(polymodel.PolyModel):
     timestamp = db.DateTimeProperty(auto_now_add=True)
     # points to the User instance who owns (created) the instance.
     owned_by = db.ReferenceProperty(LoginUser)
+    # This contact might be related to another person. If so, 'relation'
+    # describes the kind of the relation and back_ref points to the person.
+    # as an example, Jose is my friend and Nelly is his wife. There need not
+    # to be a back_ref from Jose to me (as I know him well) but Nelly may
+    # just appear in my address book because she's his wife rather than
+    # having a relation to me.
+    # So relation="My friend Jose's wife"
+    # [Nelly].back_ref --> [Jose]
+    back_rel = db.StringProperty()
+    back_ref = db.ReferenceProperty(collection_name='affix')
 
 class Company(Contact):
     """Represents a company"""
@@ -117,16 +127,6 @@ class Person(Contact):
     lastname = db.StringProperty()
     nickname = db.StringProperty()
     birthday = FuzzyDateProperty(default=FuzzyDate(0,0,0))
-    # This person might be related to another person. If so, 'relation'
-    # describes the kind of the relation and back_ref points to the person.
-    # as an example, Jose is my friend and Nelly is his wife. There need not
-    # to be a back_ref from Jose to me (as I know him well) but Nelly may
-    # just appear in my address book because she's his wife rather than
-    # having a relation to me.
-    # So relation="My friend Jose's wife"
-    # [Nelly].back_ref --> [Jose]
-    relation = db.StringProperty()
-    back_ref = db.ReferenceProperty()
     # a photo
     photo = db.BlobProperty()
 
@@ -145,10 +145,6 @@ class Take2(polymodel.PolyModel):
     timestamp = db.DateTimeProperty(auto_now_add=True)
     # archived
     attic = db.BooleanProperty(default=False)
-
-class Link(Take2):
-    """Links between Persons/Contacts
-    """
 
 class Country(db.Model):
     """List of countries of the world"""

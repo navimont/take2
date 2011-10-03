@@ -55,7 +55,12 @@
   <body lang="en">
     <header id="masthead">
       <nav>
-        <a href="{{loginout_url}}">{{loginout_text}}</a>
+        <ul>
+          <li><a href="{{loginout_url}}">{{loginout_text}}</a></li>
+          {% if signed_in %}
+            <li><a href="javascript:void(0)" onClick="post_to_url('/newperson')">New contact</a></li>
+          {% endif %}
+        </ul>
       </nav>
       <a class="gigantic" href="/">Weschnitz</a>
       <p class="bigger">Simply an online address book.</p>

@@ -26,13 +26,13 @@
       <header style="padding: 10px 0px 10px 0px;">
         <aside class="contact_edit">
           {% if contact.attic %}
-              <a href="javascript:post_to_url('/deatticcontact', {'key': '{{contact.key}}' } );">Undelete</a>
+              <a href="javascript:post_to_url('/deattic', {'instance': '{{contact.class_name}}', 'key': '{{contact.key}}' } );">Undelete</a>
           {% else %}
-              <a href="javascript:void(0)" onClick="post_to_url('/atticcontact', {'key': '{{contact.key}}'});">Delete</a>
+              <a href="javascript:void(0)" onClick="post_to_url('/attic', {'instance': '{{contact.class_name}}', 'key': '{{contact.key}}'});">Delete</a>
           {% endif %}
         </aside>
         <h2>
-          <a href="javascript:void(0)" onClick="post_to_url('/editperson', {'key': '{{contact.key}}'});">
+          <a href="javascript:void(0)" onClick="post_to_url('/edit', {'instance': '{{contact.class_name}}', 'key': '{{contact.key}}'});">
             {{ contact.name }}
             {% if contact.nickname %}
                 ({{contact.nickname}})
@@ -43,21 +43,34 @@
             {% endif %}
           </a>
         </h2>
-        {% for relation in contact.relations %}
+        {% if contact.middleman_ref %}
           <h3>
-            {{relation}}
+            {{contact.relation}} (related through <a href="/editcontact?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
           </h3>
-        {% endfor %}
+        {% endif %}
       </header>
+      {% if contact.affix.data|length < 1 %}
+          <!-- add new contact with the person as the middleman -->
+          <div class="take2_header">
+            <div>
+              <a href="javascript:void(0)" onClick="post_to_url('/newperson', {'key': '{{contact.key}}' });">
+                  <img class="take2_header_icon" src="/static/icon-new.png" alt="New">
+              </a>
+              <a class="take2_header_text" href="javascript:void(0)" onClick="post_to_url('/newperson', {'key': '{{contact.key}}' });">
+                <h3>Add new contact, family or friends.</h3>
+              </a>
+            </div>
+          </div>
+      {% endif %}
       <!-- properties for this contact -->
       {% for take2 in contact.take2 %}
         <div class="take2_section">
           <div class="take2_header">
             <div>
-              <a href="javascript:void(0)" onClick="post_to_url('/edittake2', {'action': 'new', 'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
+              <a href="javascript:void(0)" onClick="post_to_url('/edit', {'action': 'new', 'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
                   <img class="take2_header_icon" src="/static/icon-new.png" alt="New">
               </a>
-              <a class="take2_header_text" href="javascript:void(0)" onClick="post_to_url('/edittake2', {'action': 'new', 'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
+              <a class="take2_header_text" href="javascript:void(0)" onClick="post_to_url('/edit', {'action': 'new', 'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
                 <h3> {{take2.header}}</h3>
               </a>
             </div>
@@ -79,14 +92,20 @@
               {% endif %}
                 <aside class="contact_edit">
                   {% if data.attic %}
-                      <a href="javascript:post_to_url('/deattictake2', {'instance': '{{data.class_name}}', 'key': '{{data.key}}' } );">Undelete</a>
+                    <a href="javascript:post_to_url('/deattic', {'instance': '{{data.class_name}}', 'key': '{{data.key}}' } );">Undelete</a>
                   {% else %}
-                      <a href="javascript:void(0)" onClick="post_to_url('/attictake2', {'instance': '{{data.class_name}}', 'key': '{{data.key}}'});">Delete</a>
+                    <a href="javascript:void(0)" onClick="post_to_url('/attic', {'instance': '{{data.class_name}}', 'key': '{{data.key}}'});">Delete</a>
                   {% endif %}
                 </aside>
                 <li>
-                  <a href="javascript:void(0)" onClick="post_to_url('/edittake2', {'action': 'edit', 'instance': '{{data.class_name}}', 'key': '{{data.key}}' });">
+                  {% if data.class_name == 'Person' %}
+                    <!-- go to this persons main edit page, not directly into the form -->
+                    <a href="javascript:void(0)" onClick="post_to_url('/editcontact', {'key': '{{data.key}}' });">
                       {{data.data}}
+                  {% else %}
+                    <a href="javascript:void(0)" onClick="post_to_url('/edit', {'action': 'edit', 'instance': '{{data.class_name}}', 'key': '{{data.key}}' });">
+                      {{data.data}}
+                  {% endif %}
                   </a>
                 </li>
               </div>

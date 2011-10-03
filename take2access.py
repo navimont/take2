@@ -6,7 +6,7 @@ import settings
 import calendar
 from google.appengine.ext import db
 from google.appengine.api import users
-from take2dbm import Person, Contact, Link, LoginUser, FuzzyDate
+from take2dbm import Person, Contact, LoginUser, FuzzyDate
 from google.appengine.api import memcache
 from google.appengine.api import users
 from google.appengine.ext import webapp
@@ -103,7 +103,6 @@ def MembershipRequired(target):
     if not login_user.me:
         return redirectToSignupPage
     else:
-        logging.debug("returning wrapper")
         return wrapper
 
 

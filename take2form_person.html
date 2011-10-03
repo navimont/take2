@@ -1,7 +1,6 @@
 {% extends "take2form.html" %}
 
 {% block form %}
-    <input name="myself" type="hidden" value="{{myself}}">
 
     <table>
         <tr>
@@ -19,14 +18,16 @@
             <td><input name="lastname" type="text" value="{{lastname}}"></td>
             <td id="formhint"></td>
         <tr>
-        {% if not myself %}
-            </tr>
-                <td id="formtag">Who is this?</td>
-                <td>
-                  <input name="link" type="text" value="{{link}}">
-                </td>
-                <td id="formhint">Please describe your relation to this person (why you know him/her, where you met etc.)</td>
-            <tr>
+        {% if back_ref %}
+        </tr>
+            <input name="back_ref" type="hidden" value="{{back_ref}}">
+            <input name="back_ref_name" type="hidden" value="{{back_ref_name}}">
+            <td id="formtag">Relation to {{back_ref_name}}</td>
+            <td>
+              <input name="back_rel" type="text" value="{{back_rel}}">
+            </td>
+            <td>Please describe your contact's relation to this person/company.</td>
+        <tr>
         {% endif %}
         </tr>
             <td id="formtag">Birthday</td>

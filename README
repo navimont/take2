@@ -1,6 +1,23 @@
 A linked address database
 
-EPOI - Editor for Openstreetmap Points of Interest (nodes)
+Take2 - Address-Datenbank
+
+
+manage application:
+https://appengine.google.com/
+
+New Features
+
+* User Avatars
+* Weblinks blenden das Icon der Seite ein
+* Gmail oeffnen wenn auf email adresse geklickt wird
+* PDF Adress-Liste export
+* take photos with webcam
+* vcard import (or ideally, by forwarding vcard emails to weschnitz)
+* ldap interface for mail addresses
+* special layout for smartphones
+* Unsubscribe
+
 
 # On how to fetch data from remote server
 # and how to serve images from the datastore!
