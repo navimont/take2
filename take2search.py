@@ -23,6 +23,45 @@ from take2access import get_login_user, get_current_user_template_values, Member
 from take2index import lookup_contacts
 from take2view import encode_contact
 
+def upcoming_birthdays(login_user):
+    """Returns a dictionary with names, nicknames and birthdays of the login_user's contacts"""
+
+    res = []
+    daterange_from = datetime.today() - timedelta(days=5)
+    daterange_to = datetime.today() + timedelta(days=14)
+    # Convert to fuzzydate and then to int (that's how it is stored in the db).
+    # Year is least important
+    fuzzydate_from = FuzzyDate(day=daterange_from.day,
+                              month=daterange_from.month).to_int()
+    fuzzydate_to = FuzzyDate(day=daterange_to.day,
+                              month=daterange_to.month).to_int()
+    if fuzzydate_from > fuzzydate_to:
+        # end-of-year turnover
+        fuzzydate_to_1 = 12310000
+        fuzzydate_from_1 = 1010000
+    else:
+        fuzzydate_from_1 = fuzzydate_from
+        fuzzydate_to_1 = fuzzydate_to
+    logging.debug("Birthday search from: %d to %d OR  %d to %d" % (fuzzydate_from,fuzzydate_to_1,fuzzydate_from_1,fuzzydate_to))
+    # whose birthdays can I see?
+    vcon = visible_contacts(login_user)
+    # now find the ones with birthdays in the range
+    for ckey in vcon:
+        con = Contact.get(ckey)
+        # skip companies
+        if con.class_name() != "Person":
+            continue
+        if ((con.birthday.to_int() > fuzzydate_from and con.birthday.to_int() <= fuzzydate_to_1)
+            or (con.birthday.to_int() > fuzzydate_from_1 and con.birthday.to_int() <= fuzzydate_to)):
+            jubilee = {}
+            # change birthday encoding from yyyy-mm-dd to dd Month
+            jubilee['birthday'] = "%d %s" % (con.birthday.get_day(),
+                                            calendar.month_name[con.birthday.get_month()])
+            jubilee['name'] = con.name
+            jubilee['nickname'] = con.nickname if con.nickname else ""
+            res.append(jubilee)
+    return res
+
 
 class Take2Search(webapp.RequestHandler):
     """Run a search query over the current user's realm"""
@@ -33,7 +72,10 @@ class Take2Search(webapp.RequestHandler):
         login_user = get_login_user(google_user)
         template_values = get_current_user_template_values(google_user,self.request.uri)
 
+        #
         # no connection between signed in user and any person in the database
+        # => This must be a newcomer on our site. Offer him/her to sign up
+        #
         if login_user and not login_user.me:
             # prepare list of days and months
             daylist = ["(skip)"]
@@ -58,6 +100,19 @@ class Take2Search(webapp.RequestHandler):
         result = []
 
         #
+        # last search button (home) was clicked
+        #
+
+        if login_user and self.request.get('last', False) == 'True':
+            last = memcache.get('query', namespace=str(login_user.key()))
+            if last:
+                template_values['result_size'] = len(last['results'])
+                template_values['query'] = last['query']
+                for contact in db.get(last['results'][last['offset']:settings.RESULT_SIZE]):
+                    con = encode_contact(contact, include_attic=False, login_user=login_user)
+                    result.append(con)
+
+        #
         # key is given
         #
 
@@ -71,14 +126,21 @@ class Take2Search(webapp.RequestHandler):
         # query search
         #
 
-        elif query:
-            cis = lookup_contacts(query, 100, first_call=True)
-            # TODO implement various pages for long result lists
+        if query:
+            cis = lookup_contacts(query)
+            # Save the query result in memcache together with the information about
+            # which portion of it we are displaying (the first result_size datasets as
+            # it is a fresh query!)
+            if login_user:
+                if not memcache.set('query', {'query': query, 'offset': 0, 'results': cis}, time=5000, namespace=str(login_user.key())):
+                    logging.error("memcache failed")
+            template_values['result_size'] = len(cis)
             template_values['query'] = query
-            for contact in cis:
+            for contact in db.get(cis[0:settings.RESULT_SIZE]):
                 con = encode_contact(contact, include_attic=False, login_user=login_user)
                 result.append(con)
-        else:
+
+        elif len(result) == 0:
             # display current user data
             if login_user:
                 con = encode_contact(login_user.me, include_attic=False, login_user=login_user)
@@ -92,40 +154,7 @@ class Take2Search(webapp.RequestHandler):
             # read from cache if possible
             template_values['birthdays'] = memcache.get('birthdays',namespace=str(login_user.key()))
             if not template_values['birthdays']:
-                daterange_from = datetime.today() - timedelta(days=5)
-                daterange_to = datetime.today() + timedelta(days=14)
-                # Convert to fuzzydate and then to int (that's how it is stored in the db).
-                # Year is least important
-                fuzzydate_from = FuzzyDate(day=daterange_from.day,
-                                          month=daterange_from.month).to_int()
-                fuzzydate_to = FuzzyDate(day=daterange_to.day,
-                                          month=daterange_to.month).to_int()
-                if fuzzydate_from > fuzzydate_to:
-                    # end-of-year turnover
-                    fuzzydate_to_1 = 12310000
-                    fuzzydate_from_1 = 1010000
-                else:
-                    fuzzydate_from_1 = fuzzydate_from
-                    fuzzydate_to_1 = fuzzydate_to
-                logging.debug("Birthday search from: %d to %d OR  %d to %d" % (fuzzydate_from,fuzzydate_to_1,fuzzydate_from_1,fuzzydate_to))
-                # whose birthdays can I see?
-                vcon = visible_contacts(login_user)
-                # now find the ones with birthdays in the range
-                template_values['birthdays'] = []
-                for ckey in vcon:
-                    con = Contact.get(ckey)
-                    # skip companies
-                    if con.class_name() != "Person":
-                        continue
-                    if ((con.birthday.to_int() > fuzzydate_from and con.birthday.to_int() <= fuzzydate_to_1)
-                        or (con.birthday.to_int() > fuzzydate_from_1 and con.birthday.to_int() <= fuzzydate_to)):
-                        jubilee = {}
-                        # change birthday encoding from yyyy-mm-dd to dd Month
-                        jubilee['birthday'] = "%d %s" % (con.birthday.get_day(),
-                                                        calendar.month_name[con.birthday.get_month()])
-                        jubilee['name'] = con.name
-                        jubilee['nickname'] = con.nickname if con.nickname else ""
-                        template_values['birthdays'].append(jubilee)
+                template_values['birthdays'] = upcoming_birthdays(login_user)
                 # store in memcache
                 memcache.set('birthdays',template_values['birthdays'],time=60*60*24,namespace=str(login_user.key()))
 

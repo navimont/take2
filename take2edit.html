@@ -31,6 +31,9 @@
               <a href="javascript:void(0)" onClick="post_to_url('/attic', {'instance': '{{contact.class_name}}', 'key': '{{contact.key}}'});">Delete</a>
           {% endif %}
         </aside>
+        <aside class="back_button">
+            <a href="/search?last=True">Back to search results</a>
+        </aside>
         <h2>
           <a href="javascript:void(0)" onClick="post_to_url('/edit', {'instance': '{{contact.class_name}}', 'key': '{{contact.key}}'});">
             {{ contact.name }}
@@ -49,19 +52,6 @@
           </h3>
         {% endif %}
       </header>
-      {% if contact.affix.data|length < 1 %}
-          <!-- add new contact with the person as the middleman -->
-          <div class="take2_header">
-            <div>
-              <a href="javascript:void(0)" onClick="post_to_url('/newperson', {'key': '{{contact.key}}' });">
-                  <img class="take2_header_icon" src="/static/icon-new.png" alt="New">
-              </a>
-              <a class="take2_header_text" href="javascript:void(0)" onClick="post_to_url('/newperson', {'key': '{{contact.key}}' });">
-                <h3>Add new contact, family or friends.</h3>
-              </a>
-            </div>
-          </div>
-      {% endif %}
       <!-- properties for this contact -->
       {% for take2 in contact.take2 %}
         <div class="take2_section">
@@ -74,13 +64,15 @@
                 <h3> {{take2.header}}</h3>
               </a>
             </div>
-            <div style="height: 10px"></div>
-            <a class="take2_header_toggle" href="javascript:void(0)">
-                <img class="take2_header_icon" src="/static/icon-undelete.png" alt="New">
-            </a>
-            <a class="take2_header_toggle" href="javascript:void(0)">
-              Show/hide deleted items
-            </a>
+            {% if take2.has_attic %}
+              <div style="height: 10px"></div>
+              <a class="take2_header_toggle" href="javascript:void(0)">
+                  <img class="take2_header_icon" src="/static/icon-undelete.png" alt="New">
+              </a>
+              <a class="take2_header_toggle" href="javascript:void(0)">
+                Show/hide deleted items
+              </a>
+            {% endif %}
           </div>
           <div style="height: 10px"></div>
           <ul>

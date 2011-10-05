@@ -105,7 +105,7 @@ class Contact(polymodel.PolyModel):
     # archived
     attic = db.BooleanProperty(default=False)
     # creation timestamp
-    timestamp = db.DateTimeProperty(auto_now_add=True)
+    timestamp = db.DateTimeProperty(auto_now=True)
     # points to the User instance who owns (created) the instance.
     owned_by = db.ReferenceProperty(LoginUser)
     # This contact might be related to another person. If so, 'relation'
@@ -142,7 +142,7 @@ class Take2(polymodel.PolyModel):
     # newer version of this entity.
     contact_ref = db.ReferenceProperty(reference_class=None, required=True)
     # creation timestamp
-    timestamp = db.DateTimeProperty(auto_now_add=True)
+    timestamp = db.DateTimeProperty(auto_now=True)
     # archived
     attic = db.BooleanProperty(default=False)
 

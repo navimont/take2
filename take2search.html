@@ -13,13 +13,14 @@
           </ul>
         {% endif %}
       {% else %}
-        <p>You need to sign in to use this site (a google account will do).</p>
+        <p>You need to sign in to enter your own address book on this site (a google account will do).</p>
+        <div style="width: 300px; height: 30px;"></div>
       {% endif %}
     </header>
     {% if result %}
         {% if query %}
           <header>
-            <h1>{{ result|length }} Results for "{{ query|escape }}":</h1>
+            <h1>Results for "{{ query|escape }}" ({{ result_size }} found):</h1>
           </header>
         {% endif %}
       {% for contact in result %}
@@ -46,28 +47,30 @@
                   &nbsp;*{{contact.birthday}} {{contact.birthmonth}}
               {% endif %}
             </h2>
-            {% for relation in contact.relations %}
+            {% if contact.middleman_ref %}
               <h3>
-                {{relation}}
+                {{contact.relation}} (related through <a id="contact_link" href="/search?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
               </h3>
-            {% endfor %}
+            {% endif %}
           </header>
           <!-- properties for this contact -->
           {% for take2 in contact.take2 %}
-            <hr>
-            {% if take2.class_name == 'Affix' %}
-              {% for data in take2.data %}
-                <a id="contact_link" href="/search?key={{data.key}}">{{data.data}}</a>
-                {% if not forloop.last %}
-                  ,&nbsp;
-                {% endif%}
-              {% endfor %}
-            {% else %}
-              <ul>
+            {% if take2.has_data %}
+              <hr>
+              {% if take2.class_name == 'Contact' %}
                 {% for data in take2.data %}
-                  <li>{{data.data}}</li>
+                  <a id="contact_link" href="/search?key={{data.key}}">{{data.data}}</a>
+                  {% if not forloop.last %}
+                    ,&nbsp;
+                  {% endif%}
                 {% endfor %}
-              </ul>
+              {% else %}
+                <ul>
+                  {% for data in take2.data %}
+                    <li>{{data.data}}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
             {% endif %}
           {% endfor %}
         </article>
@@ -77,9 +80,19 @@
         <header>
           {% if query %}
               <h1>Nothing found for {{ query|escape }}</h1>
+          {% else %}
           {% endif %}
         <header>
       {% endif %}
+    {% endif %}
+    {% if not query %}
+      <div style="width: 300px; height: 30px;"></div>
+      <h2>This is your main page at Weschnitz!</h2>
+      <h3>What you can do from here:</h3>
+        <ul>
+            <li>Your personal data is being displayed above. You can edit or extend it by adding phone numers, a new address etc.</li>
+            <li>Enter more of your friend's addresses. Use the 'New contact' menu entry in the upper right corner.</li>
+        </ul>
     {% endif %}
   <footer>
   </footer>

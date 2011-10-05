@@ -178,6 +178,21 @@ article {
   margin-top: 5px;
 }
 
+.back_button {
+  float: right;
+  width: 110px;
+  text-align: left;
+  padding: 5px;
+	margin-right: -170px;
+	margin-top: -10px;
+  background-color: #30C090;
+}
+
+#contact_link {
+  color: #303030;
+  text-decoration: underline;
+}
+
 /* all links on this page */
 a:link, a:hover, a:visited {
   color: #E6E6E6;
@@ -186,11 +201,6 @@ a:link, a:hover, a:visited {
 
 a:hover {
   cursor: pointer;
-}
-
-#contact_link {
-  color: #303030;
-  text-decoration: underline;
 }
 
 /*		Tablet Layout: 768px.

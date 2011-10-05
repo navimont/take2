@@ -29,6 +29,8 @@ def write_access(obj, login_user):
     else:
         contact = obj
 
+    logging.debug("contact.owned_by %s login_user %s" % (contact.owned_by.user.nickname(),login_user.user.nickname()))
+
     if contact.owned_by.key() != login_user.key():
         logging.critical("User %s %s cannot manipulate %s" % (login_user.user.nickname, login_user.user.user_id,str(obj.key())))
         return False
@@ -53,6 +55,7 @@ def get_login_user(google_user):
         me = LoginUser(user=google_user, location=db.GeoPt(0,0))
         me.put()
 
+    logging.debug("google-user: %s login_user: %s" % (google_user.nickname(),me.user.nickname()))
     return me
 
 
@@ -80,6 +83,7 @@ def MembershipRequired(target):
     Also prepares the google user object, the user's take2 identity and some
     template_values and calls the target function with those as parameters.
     """
+
     def redirectToSignupPage(self):
         path = os.path.join(os.path.dirname(__file__), 'take2welcome.html')
         self.response.out.write(template.render(path, []))
@@ -90,20 +94,20 @@ def MembershipRequired(target):
         return
 
     def wrapper (self):
-        # Add extra parameters
-        kwargs = {'login_user': login_user,
-                  'template_values': get_current_user_template_values(google_user, self.request.uri)}
-        return target(self, **kwargs)
+        # find my own Person object
+        google_user = users.get_current_user()
+        if not google_user:
+            return redirect_to_login_page
+        login_user = get_login_user(google_user)
+        if not login_user.me:
+            return redirectToSignupPage
+        else:
+            # Add extra parameters
+            kwargs = {'login_user': login_user,
+                      'template_values': get_current_user_template_values(google_user, self.request.uri)}
+            return target(self, **kwargs)
 
-    # find my own Person object
-    google_user = users.get_current_user()
-    if not google_user:
-        return redirect_to_login_page
-    login_user = get_login_user(google_user)
-    if not login_user.me:
-        return redirectToSignupPage
-    else:
-        return wrapper
+    return wrapper
 
 
 def visible_contacts(login_user, include_attic=False, refresh=False):
@@ -118,7 +122,7 @@ def visible_contacts(login_user, include_attic=False, refresh=False):
 
     # check in memcache
     if not refresh:
-        visible = memcache.get(login_user.user.user_id())
+        visible = memcache.get('visible', namespace=str(login_user.key()))
         if visible:
             return visible
 
@@ -129,16 +133,16 @@ def visible_contacts(login_user, include_attic=False, refresh=False):
     # 1. Can see all contacts which were created by the person
     #
 
-    q_con = Contact.all().filter("owned_by =", login_user)
+    q_con = db.Query(Contact, keys_only=True)
+    q_con.filter("owned_by =", login_user)
     if not include_attic:
         q_con.filter("attic =", False)
     for con in q_con:
-        visible.append(con.key())
+        visible.append(con)
 
     visible = set(visible)
-    logging.debug([Contact.get(key).name for key in visible])
-    if not memcache.set(login_user.user.user_id(), visible, time=5000):
-        logging.Error("memcache failed for key: %s" % login_user.user.user_id())
+    if not memcache.set('visible', visible, time=5000,  namespace=str(login_user.key())):
+        logging.error("memcache failed for key: %s" % str(login_user.key()))
 
     return visible
 
@@ -176,9 +180,13 @@ class Take2Signup(webapp.RequestHandler):
                 birthday = int(self.request.get("birthday", None))
             except ValueError:
                 birthday = 0
+            except TypeError:
+                birthday = 0
             try:
                 birthmonth = int(self.request.get("birthmonth", None))
             except ValueError:
+                birthmonth = 0
+            except TypeError:
                 birthmonth = 0
             person.birthday = FuzzyDate(day=birthday,month=birthmonth,year=0000)
             person.owned_by = login_user

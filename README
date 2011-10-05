@@ -17,7 +17,7 @@ New Features
 * ldap interface for mail addresses
 * special layout for smartphones
 * Unsubscribe
-
+* Export data for christmas card lists or other meetups
 
 # On how to fetch data from remote server
 # and how to serve images from the datastore!

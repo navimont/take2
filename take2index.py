@@ -15,7 +15,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.db import Key
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import memcache
-from take2dbm import Contact, Person, Company, Take2, ContactIndex, PlainKey
+from take2dbm import Contact, Person, Company, Take2, ContactIndex, PlainKey, Address
 
 def plainify(string):
     """Removes all accents and special characters form string and converts
@@ -31,42 +31,81 @@ def plainify(string):
         s1 = s1.replace("`", "")
         s1 = s1.encode('ascii','ignore')
         s1 = s1.replace("~", "")
-        res.append(s1)
+        s1 = s1.strip()
+        if len(s1):
+            res.append(s1)
 
     return res
 
 
-def check_and_store_key(contact):
-    """Saves index keywords for the contact (name and last name)
+def check_and_store_key(obj, batch=False):
+    """Updates index keywords for the contact
 
-    Returns number of additional keys saved in index
+    Index keywords are:
+    - name
+    - lastname
+    - nickname
+    - town, neighborhood
+
+    If an address or contact is deleted, the ContactIndex pointer from the
+    keyword PlainKey to the entry is deleted (only the connection is deleted,
+    both the plain key and the contact data remain in the database.)
+
+    The batch parameter determines whether the data is added and deleted
+    immediatley (batch=false) or returned so that the db operations can be
+    executed bu the caller efficiently. If batch=True, it returns a dictionary
+    with ContactIndex objects to be added and ContactIndex keys tp be deleted.
     """
-    if contact.attic:
-        return 0
+    attic = False
 
-    res = 0
+    if obj.class_name() in ['Person','Contact','Company']:
+        contact = obj
+        new_keys = plainify(contact.name)
+        if contact.class_name() == "Person":
+            if contact.lastname:
+                new_keys.extend(plainify(contact.lastname))
+            if contact.nickname:
+                new_keys.extend(plainify(contact.nickname))
+        attic = contact.attic
+    elif obj.class_name() in ['Address']:
+        contact = obj.contact_ref
+        # use the last two elements as search keys (should be town and neighborhood or similar)
+        new_keys = plainify(" ".join(obj.adr_zoom[-2:]))
+        attic = contact.attic or obj.attic
+    else:
+        assert False, "Class %s is not considered here" % (obj.class_name())
 
-    new_keys = (plainify(contact.name))
-    if contact.class_name() == "Person":
-        if contact.lastname:
-            new_keys.extend(plainify(contact.lastname))
-
+    add = []
+    delete = []
     for key in new_keys:
-        # lookup plainified key
+        # lookup plainified key and store if not yet present
         pk = PlainKey.all().filter("plain_key =", key).get()
         if pk:
-            if ContactIndex.all().filter("plain_key_ref =", pk).filter("contact_ref =", contact).get():
-                break
+            ci = ContactIndex.all().filter("plain_key_ref =", pk).filter("contact_ref =", contact).get()
+            if ci:
+                if attic:
+                    delete.append(ci)
+                    logging.debug("%s -> %s delete" % (key,contact.name))
+                else:
+                    logging.debug("%s -> %s exists. ok." % (key,contact.name))
+                    continue
         else:
+            # store new plain key to database
             logging.debug("New plain key %s" % (key))
             pk = PlainKey(plain_key=key)
-            res = res +1
             pk.put()
-        # save
-        ci = ContactIndex(plain_key_ref=pk, contact_ref=contact)
-        ci.put()
+        if not attic:
+            # save the connection from key to contact
+            logging.debug("%s -> %s added" % (key,contact.name))
+            ci = ContactIndex(plain_key_ref=pk, contact_ref=contact)
+            add.append(ci)
 
-    return 1
+    if batch:
+        return {'add': add, 'delete': delete}
+    else:
+        db.delete(delete)
+        db.put(add)
+        return {'add': len(add), 'delete': len(delete)}
 
 class UpdateContactIndex(webapp.RequestHandler):
     """Used by task queue"""
@@ -80,19 +119,11 @@ class UpdateContactIndex(webapp.RequestHandler):
         - Person lastnames
         - Contact locations
         """
+        refresh = self.request.get("refresh", "False") == "True"
+
         logging.info("Time to update contact index.")
         delete = []
-        add = 0
-
-        # check existing table for pointers to obsolete entries
-        for ci in ContactIndex.all():
-            if ci.contact_ref.attic:
-                logging.debug("Delete obsolete contact index %s to %s" % (ci.plain_key_ref.plain_key, ci.contact_ref.name))
-                delete.append(ci.key())
-                delete.append(ci.plain_key_ref)
-        # bulk delete
-        db.delete(delete)
-
+        add = []
         last_refresh = memcache.get('contact_index_last_refresh')
         if not last_refresh:
             # we don't know when our last refresh was'
@@ -100,39 +131,62 @@ class UpdateContactIndex(webapp.RequestHandler):
 
         memcache.set('contact_index_last_refresh', datetime.now())
 
+        # cleanup history entries
+        if refresh:
+            for t2 in Take2.all():
+                key = Take2.contact_ref.get_value_for_datastore(t2)
+                if key.kind() == 'Take2':
+                    t2.delete()
+                    logging.debug("Delete obsolete historic entry")
+
         # Update data in contact tables, latest first
         q_con = Contact.all()
-        q_con.filter("attic =", False)
         q_con.order("-timestamp")
         for con in q_con:
-            # only since last refresh
-            if con.timestamp < last_refresh:
+            if not refresh and (con.timestamp < last_refresh):
                 break
+            # add new ones only since last refresh
             # keep track of total number
-            add = add + check_and_store_key(con)
+            res = check_and_store_key(con, batch=True)
+            add.extend(res['add'])
+            delete.extend(res['delete'])
 
-        logging.info("Contact index up to date: %d added. %d deleted." % (add,len(delete)))
+        # bulk db operation
+        db.delete(delete)
+        db.put(add)
+        logging.info("Contact index up to date: %d added. %d deleted." % (len(add),len(delete)))
 
-def lookup_contacts(term, result_size=20, first_call=True):
+        delete = []
+        add = []
+        # Same update for address table
+        q_adr = Address.all()
+        q_adr.order("-timestamp")
+        for adr in q_adr:
+            if not refresh and (adr.timestamp < last_refresh):
+                break
+            # add new ones only since last refresh
+            # keep track of total number
+            res = check_and_store_key(adr, batch=True)
+            add.extend(res['add'])
+            delete.extend(res['delete'])
+
+        # bulk db update
+        db.delete(delete)
+        db.put(add)
+        logging.info("Town index up to date: %d added. %d deleted." % (len(add),len(delete)))
+
+
+def lookup_contacts(term):
     """Lookup function for search term.
 
-    Returns Contact objects (Person or Company)
-    Splits term if more than one word
+    Splits term if more than one word and looks for contacts which have _all_
+    search terms in their relevant(indexed) fields. Indexed is name, nickname,
+    lastname and town.
+    Returns a list with Contact keys.
     """
 
-    # check in memcache
-    if not first_call:
-        contacts = memcache.get(term)
-        # retrieve a chunk of result size
-        res = contacts[0:result_size]
-        # and put the rest back in storage
-        if not memcache.set(term, contacts[result_size:], time=5000):
-            logging.Error("memcache failed")
-        return db.get(res)
-
-    logging.debug(term)
     queries = plainify(term)
-    logging.debug(queries)
+    logging.debug("lookup_contacts searches for %s" % " ".join(queries))
 
     query_contacts = []
     for query in queries:
@@ -162,57 +216,35 @@ def lookup_contacts(term, result_size=20, first_call=True):
     for cons in query_contacts[1:]:
         contacts = contacts.intersection(cons)
 
-    contacts = list(contacts)
-
-    # retrieve first chunk of result size
-    res = contacts[0:result_size]
-    # and put the rest in storage
-    if not memcache.set(term, contacts[result_size:], time=5000):
-        logging.Error("memcache failed")
-    return db.get(res)
+    return list(contacts)
 
 class LookupNames(webapp.RequestHandler):
     """Quick lookup for search field autocompletion"""
 
     def get(self):
         """Receives a query parameter and returns keywords that fit the query"""
-        user = users.get_current_user()
-        signed_in = True if user else False
-
-        res = []
-
         term = self.request.get('term',"")
         queries = plainify(term)
 
-        res = []
-        for query in queries:
-            query0 = query
-            query1 = query0+u"\ufffd"
-            # look up plain query string in list of plain keys (keys only)
-            q_pk = db.Query(PlainKey, keys_only=True)
-            q_pk.filter("plain_key >=", query0)
-            q_pk.filter("plain_key <", query1)
-            keys = q_pk.fetch(12)
-            if signed_in:
-                contacts = []
-                for key in keys:
-                    contacts.extend(ContactIndex.all().filter("plain_key_ref =", key).fetch(12))
-                # shuffle the list
-                shuffle(contacts)
-                # use only the first 21
-                contacts = contacts[0:20]
-                # replace ContactIndex by contact names
-                for con in contacts:
-                    if con.contact_ref.lastname:
-                        res.append("%s %s" % (con.contact_ref.name, con.contact_ref.lastname))
-                    else:
-                        res.append(con.contact_ref.name)
-            else:
-                res = [key.plain_key.capitalize() for key in keys]
+        # if the query string is more than one term, lookup only the last
+        res0 = " ".join(queries[0:-1])
+        query0 = queries[-1]
+        query1 = query0+u"\ufffd"
+        # look up plain query string in list of plain keys (keys only)
+        q_pk = db.Query(PlainKey, keys_only=False)
+        q_pk.filter("plain_key >=", query0)
+        q_pk.filter("plain_key <", query1)
+        keys = q_pk.fetch(12)
+        if len(res0):
+            res = [res0]
+        else:
+            res = []
+        for key in keys:
+            res.append("%s %s" % (res0,key.plain_key.capitalize()))
 
         # encode and return
         self.response.headers['Content-Type'] = "text/plain"
-        self.response.out.write(json.dumps(res,indent=2))
+        self.response.out.write(json.dumps(res))
 
 
 

@@ -20,17 +20,6 @@ from take2view import encode_contact
 from take2geo import geocode_lookup
 from take2index import check_and_store_key
 
-def save_take2_with_history(new,old):
-    """Saves a new Take2 entity in the datastore. The new object
-    replaces the old entity and we keep a history by leaving
-    the old entity in the datastore but now pointing to the new one."""
-
-    if new:
-        new.put()
-        if old:
-            old.contact_ref = new
-            old.put()
-
 class ContactEdit(webapp.RequestHandler):
     """present a contact including old data (attic) for editing"""
 
@@ -116,7 +105,7 @@ class PersonSave(webapp.RequestHandler):
         #
         try:
             # allow the user to make input like 13/8
-            bd = ("0%s/0/0" % self.request.get("birthday", "")).split("/")
+            bd = ("0%s/0/0" % self.request.get("birthday", "").strip()).split("/")
             day = int(bd[0])
             month = int(bd[1])
             year = int(bd[2])
@@ -137,10 +126,10 @@ class PersonSave(webapp.RequestHandler):
             person.put()
             # generate search keys for new contact
             check_and_store_key(person)
-        except db.BadValueError as error:
-            template_values['errors'] = [error]
-        except ValueError as error:
-            template_values['errors'] = [error]
+        except db.BadValueError:
+            template_values['errors'] = ["Invalid data"]
+        except ValueError:
+            template_values['errors'] = ["Value error"]
         if 'errors' in template_values:
             for arg in self.request.arguments():
                 template_values[arg] = self.request.get(arg)
@@ -202,10 +191,10 @@ class CompanySave(webapp.RequestHandler):
                 company = Company.get(company_key)
                 company.name = name=self.request.get("company_name", "")
                 company.put()
-        except db.BadValueError as error:
-            template_values['errors'] = [error]
-        except ValueError as error:
-            template_values['errors'] = [error]
+        except db.BadValueError:
+            template_values['errors'] = ["BadValueError"]
+        except ValueError:
+            template_values['errors'] = ["ValueError"]
         if 'errors' in template_values:
             template_values['linklist'] = prepareListOfRelations(settings.INSTITUTION_RELATIONS,link)
             for arg in self.request.arguments():
@@ -214,25 +203,8 @@ class CompanySave(webapp.RequestHandler):
             self.response.out.write(template.render(path, template_values))
             return
 
-        # update relation
-        link = Link.all().filter("contact_ref =", me).filter("link_to =", company).fetch(1)
-        if len(link) > 0:
-            link0 = link[0]
-        else:
-            link0 = None
-        link_link = self.request.get("linkselect")
-        # currently not used for links to company
-        link_nickname = self.request.get("nickname", "")
-        link1 = None
-        if not link0 or (link0.link != link_link or link0.nickname != link_nickname):
-            # Relation is new or was changed. Create new link
-            link1 = Link(parent=link0,
-                         contact=me,
-                         nickname=link_nickname,
-                         link=link_link,
-                         link_to=company)
-
-        db.run_in_transaction(save_take2_with_history, new=link1, old=link0)
+        # update visibility list
+        visible_contacts(login_user, refresh=True)
 
         self.redirect('/editcontact?key=%s' % str(company.key()))
 
@@ -296,7 +268,6 @@ class Take2Save(webapp.RequestHandler):
         # Instantiate a fresh entity class if the action
         # is edit and some property has changed
         # OR if the action is new
-        obj1 = None
         try:
             if instance == 'Address':
                 country = self.request.get("country", None)
@@ -313,29 +284,35 @@ class Take2Save(webapp.RequestHandler):
                     landline_phone = db.PhoneNumber(phone)
                 else:
                     landline_phone = None
-                if not obj0 or not obj0.location or (obj0.location.lat != lat
-                   or obj0.location.lon != lon
-                   or obj0.adr != adr
-                   or obj0.landline_phone != landline_phone
-                   or obj0.country != country):
-                    country_key = Country.all().filter("country =", country).get().key()
-                    obj1 = Address(parent=obj0,
-                                  location=db.GeoPt(lon=lon, lat=lat), adr=adr,
+                country_key = Country.all().filter("country =", country).get().key()
+                if obj0:
+                    obj0.adr = adr
+                    obj0.location = db.GeoPt(lon=lon, lat=lat)
+                    obj0.country = country_key
+                    obj0.adr_zoom = adr_zoom
+                else:
+                    obj0 = Address(location=db.GeoPt(lon=lon, lat=lat), adr=adr,
                                   landline_phone=landline_phone, country=country_key,
                                   adr_zoom=adr_zoom,
                                   contact_ref=contact.key())
             elif instance == 'Mobile':
                 mobile = db.PhoneNumber(self.request.get("mobile", ""))
-                if not obj0 or obj0.mobile != mobile:
-                    obj1 = Mobile(parent=obj0,mobile=mobile, contact_ref=contact.key())
+                if obj0:
+                    obj0.mobile = mobile
+                else:
+                    obj0 = Mobile(mobile=mobile, contact_ref=contact.key())
             elif instance == 'Web':
                 web = db.Link(self.request.get("web", ""))
-                if not obj0 or obj0.web != web:
-                    obj1 = Web(parent=obj0, web=web, contact_ref=contact.key())
+                if obj0:
+                    obj0.web = web
+                else:
+                    obj0 = Web(web=web, contact_ref=contact.key())
             elif instance == 'Email':
                 email = db.Email(self.request.get("email", ""))
-                if not obj0 or obj0.email != email:
-                    obj1 = Email(parent=obj0, email=email, contact_ref=contact.key())
+                if obj0:
+                    obj0.email = email
+                else:
+                    obj0 = Email(email=email, contact_ref=contact.key())
             elif instance == 'Other':
                 what = self.request.get("what", "")
                 # look for existing tag in DB
@@ -344,14 +321,17 @@ class Take2Save(webapp.RequestHandler):
                     tag = OtherTag(tag=what)
                     tag.put()
                 text = self.request.get("text", "")
-                if not obj0 or (obj0.tag != tag or obj0.text != text):
-                    obj1 = Other(parent=obj0, tag=tag,text=text,contact_ref=contact.key())
+                if obj0:
+                    obj0.what = what
+                    obj0.tag = tag
+                else:
+                    obj0 = Other(tag=tag,text=text,contact_ref=contact.key())
             else:
                 assert False, "Unhandled instance: %s" % (instance)
-        except db.BadValueError as error:
-            template_values['errors'] = [error]
-        except ValueError as error:
-            template_values['errors'] = [error]
+        except db.BadValueError:
+            template_values['errors'] = ["Bad value error"]
+        except ValueError:
+            template_values['errors'] = ["Value error"]
         if 'errors' in template_values:
             for arg in self.request.arguments():
                 template_values[arg] = self.request.get(arg)
@@ -359,8 +339,7 @@ class Take2Save(webapp.RequestHandler):
             self.response.out.write(template.render(path, template_values))
             return
 
-        # new and old objects will be saved/updated
-        db.run_in_transaction(save_take2_with_history, new=obj1,old=obj0)
+        obj0.put()
 
         self.redirect('/editcontact?key=%s' % str(contact.key()))
 
@@ -508,7 +487,8 @@ class Edit(webapp.RequestHandler):
             titlestr = titlestr+" address"
             form_file = 'take2form_address.html'
             if action == 'edit':
-                template_values['landlist'] = prepareListOfCountries(t2.country.country)
+                country = t2.country.country if t2.country else ""
+                template_values['landlist'] = prepareListOfCountries(country)
                 template_values['adr'] = "\n".join(t2.adr)
                 if t2.location:
                     template_values['lat'] = t2.location.lat
@@ -549,7 +529,7 @@ class Edit(webapp.RequestHandler):
         template_values['titlestr'] = titlestr
         template_values['action'] = action
         if contact.class_name() == "Person":
-            template_values['name'] = contact.name+" "+contact.lastname
+            template_values['name'] = "%s %s" % (contact.name,contact.lastname)
         else:
             template_values['name'] = contact.name
         template_values['form'] = form
@@ -570,7 +550,7 @@ class Edit(webapp.RequestHandler):
         elif instance == 'Company':
             Edit.edit_person(self,login_user,template_values)
         elif instance == 'Contact':
-            assert False, "instance should be Person or Company"
+            Edit.edit_person(self,login_user,template_values)
         else:
             Edit.edit_take2(self,login_user,template_values)
 
@@ -592,6 +572,10 @@ class Attic(webapp.RequestHandler):
 
         contact.attic = True;
         contact.put();
+
+        # if the contact had a backwards refrence, direkt to the middleman
+        if contact.back_ref:
+            key = str(contact.back_ref.key())
 
         self.redirect('/editcontact?key=%s' % key)
 

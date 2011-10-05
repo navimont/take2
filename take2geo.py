@@ -39,11 +39,11 @@ def geocode_lookup(adr):
         else:
             try:
                 geo = json.loads(georaw.content)
-            except TypeError as err:
-                logging.error("JSON decoder error: %s" % err)
+            except TypeError:
+                logging.error("JSON decoder error: TypeError")
                 res['error'] = "DECODING_TYPE_ERROR"
-            except ValueError as err:
-                logging.error("JSON decoder error: %s" % err)
+            except ValueError:
+                logging.error("JSON decoder error: ValueError")
                 res['error'] = "DECODING_VALUE_ERROR"
             else:
                 if geo['status'] == "OK":

@@ -16,12 +16,14 @@ class Take2Overview(object):
         self.header = headertext
         self.data = []
         self.has_attic = False
+        self.has_data = False
         self.class_name = class_name
 
     def append_take2(self,obj):
         """obj is a Take2View subclass (Take2email etc.)"""
         if obj.attic:
             self.has_attic = True
+        self.has_data = True
         self.data.append(obj)
 
 class Take2View(object):
@@ -90,6 +92,7 @@ class ContactView():
         self.web = Take2Overview('Web site','Web')
         self.other = Take2Overview('Miscellaneous','Other')
         self.address = Take2Overview('Street address','Address')
+        self.take2 = [self.affix,self.email,self.mobile,self.web,self.address,self.other]
 
     def append_relation(self,relation):
         self.relations.append(relation)
@@ -111,12 +114,6 @@ class ContactView():
             self.other.append_take2(OtherView(obj))
         elif obj.class_name() == "Address":
             self.address.append_take2(AddressView(obj))
-        # create a take2 list of Take2Overview objects but
-        # only those which contain data
-        self.take2 = []
-        for t2 in [self.affix,self.email,self.mobile,self.web,self.address,self.other]:
-            if t2.data:
-                self.take2.append(t2)
 
 
 def encode_contact(contact, login_user, include_attic=False):

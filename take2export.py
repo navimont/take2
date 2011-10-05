@@ -379,7 +379,7 @@ class Take2ImportTask(webapp.RequestHandler):
                             # property for rater resolve
                             link_to_references.append((entry.key(),m['link_to']))
                         if classname == 'address':
-                            obj = Address(adr=m['adr'], contact_ref=entry.key())
+                            obj = Address(adr=m['adr'], contact_ref=entry)
                             if 'location_lat' in m and 'location_lon' in m:
                                 obj.location = db.GeoPt(lat=float(m['location_lat']),lon=float(m['location_lon']))
                             if 'landline_phone' in m:
@@ -418,8 +418,6 @@ class Take2ImportTask(webapp.RequestHandler):
         # Back references to people
         #
         for parent,child_old_key in link_to_references:
-            logging.debug(parent.name)
-            logging.debug(child_old_key)
             # find child's new key
             key = old_key_to_new_key[child_old_key]
             # update child with back reference
@@ -433,7 +431,8 @@ class Take2ImportTask(webapp.RequestHandler):
         logging.info("Import task added %d contacts. Now store their %d dependent datasets" % (count,len(take2_entries)))
         db.put(take2_entries)
         logging.info("Import task done.")
-        memcache.delete('import_status')
+        # make sure that all indices have to be re-built
+        memcache.flush_all()
 
 application = webapp.WSGIApplication([('/importfile', Take2Import),
                                       ('/import', Take2SelectImportFile),
