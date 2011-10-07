@@ -131,14 +131,6 @@ class UpdateContactIndex(webapp.RequestHandler):
 
         memcache.set('contact_index_last_refresh', datetime.now())
 
-        # cleanup history entries
-        if refresh:
-            for t2 in Take2.all():
-                key = Take2.contact_ref.get_value_for_datastore(t2)
-                if key.kind() == 'Take2':
-                    t2.delete()
-                    logging.debug("Delete obsolete historic entry")
-
         # Update data in contact tables, latest first
         q_con = Contact.all()
         q_con.order("-timestamp")

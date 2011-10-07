@@ -13,7 +13,6 @@ from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.ext import webapp
 from google.appengine.ext.db import Key
-from google.appengine.api import taskqueue
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import memcache
@@ -63,37 +62,45 @@ def upcoming_birthdays(login_user):
     return res
 
 
+def ask_geolocation(login_user):
+    """function determines whether user shall be asked to submit positon or not
+
+    Checks global setting and if global setting is True or not existent
+    it will ask.
+    If the user declined the request, it will not ask for the rest of the week.
+    """
+
+    if login_user.ask_geolocation:
+        if login_user.ask_geolocation[0] == True:
+            if len(login_user.ask_geolocation) > 1:
+                # there may be restrictions regarding the time when I can ask again
+                if login_user.ask_geolocation[1] > datetime.today():
+                    return False
+
+            return True
+        else:
+            return False
+    else:
+        # default is True
+        login_user.ask_geolocation = [True]
+        login_user.put()
+        return True
+
+
+
 class Take2Search(webapp.RequestHandler):
     """Run a search query over the current user's realm"""
 
     def get(self):
-        google_user = users.get_current_user()
-        signed_in = True if google_user else False
-        login_user = get_login_user(google_user)
-        template_values = get_current_user_template_values(google_user,self.request.uri)
-
-        #
-        # no connection between signed in user and any person in the database
-        # => This must be a newcomer on our site. Offer him/her to sign up
-        #
-        if login_user and not login_user.me:
-            # prepare list of days and months
-            daylist = ["(skip)"]
-            daylist.extend(range(1,32))
-            template_values['daylist'] = daylist
-            monthlist=[(str(i),calendar.month_name[i]) for i in range(13)]
-            monthlist[0] = ("0","(skip)")
-            template_values['monthlist'] = monthlist
-            path = os.path.join(os.path.dirname(__file__), 'take2welcome.html')
-            self.response.out.write(template.render(path, template_values))
-            return
+        login_user = get_login_user()
+        template_values = get_current_user_template_values(login_user,self.request.uri)
 
         query = self.request.get('query',"")
         contact_key = self.request.get('key',"")
-        if self.request.get('attic',"") == 'True':
-            archive = True
-        else:
-            archive = False
+        archive = True if self.request.get('attic',"") == 'True' else False
+
+        # ask user for geolocation
+        template_values['geolocation_request'] = ask_geolocation(login_user)
 
         logging.debug("Search query: %s archive: %d key: %s " % (query,archive,contact_key))
 
@@ -142,7 +149,7 @@ class Take2Search(webapp.RequestHandler):
 
         elif len(result) == 0:
             # display current user data
-            if login_user:
+            if login_user and login_user.me:
                 con = encode_contact(login_user.me, include_attic=False, login_user=login_user)
                 result.append(con)
 
@@ -150,7 +157,7 @@ class Take2Search(webapp.RequestHandler):
         # birthday search
         #
 
-        if login_user:
+        if login_user and login_user.me:
             # read from cache if possible
             template_values['birthdays'] = memcache.get('birthdays',namespace=str(login_user.key()))
             if not template_values['birthdays']:

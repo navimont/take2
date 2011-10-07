@@ -97,6 +97,11 @@ class LoginUser(GeoModel):
     # points to the Person which represents this user
     # (can't use the Person qualifier because Person is not defined yet)
     me = db.ReferenceProperty()
+    #
+    # Settings
+    #
+    # if true, ask user for geolocation at every search
+    ask_geolocation = db.ListProperty(bool, default=[True])
 
 class Contact(polymodel.PolyModel):
     """Base class for person and Company"""

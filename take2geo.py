@@ -9,6 +9,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext import db
 from google.appengine.api.urlfetch import fetch
 from take2dbm import Address
+from take2access import get_login_user
 
 def geocode_lookup(adr):
     """performs a geo lookup for the given address
@@ -68,24 +69,33 @@ def geocode_lookup(adr):
     return res
 
 
-class Geocode(webapp.RequestHandler):
-    """Return coordinates and neighborhood for a given address"""
+class LocationHandler(webapp.RequestHandler):
+    """A user sends her location"""
 
     def get(self):
-        adr = self.request.get("adr", None)
+        login_user = get_login_user()
+        # must be logged in to submit position
+        if not login_user:
+            self.error(500)
+            return
 
-        if not adr:
-            logging.error("no address parameter")
-            res = "NO_KEY"
-        else:
-            res = json.dumps(geocode_lookup(adr))
+        lat = self.request.get("lat", None)
+        lon = self.request.get("lon", None)
+        user = self.request.get("user", None)
+        # PERMISSION_DENIED (1)
+        # POSITION_UNAVAILABLE (2)
+        # TIMEOUT (3)
+        # UNKNOWN_ERROR (0)
+        err = self.request.get("err", None)
 
-        self.response.headers['Content-Type'] = 'text/plain'
-        self.response.out.write(res)
+        logging.debug("%s %s %s %s" % (lat,lon,user,err))
+
+        # response is always OK
+        self.response.set_status(200)
+        return
 
 
-
-application = webapp.WSGIApplication([('/geo.*', Geocode)
+application = webapp.WSGIApplication([('/location.*', LocationHandler)
                                      ],settings.DEBUG)
 
 def main():

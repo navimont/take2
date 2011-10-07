@@ -106,6 +106,7 @@ body {
 	padding-right: 48px;
   padding-top: 24px;
 	width: 896px;
+  height: 120px;
   background-color: #30C090;
 }
 
@@ -188,20 +189,28 @@ article {
   background-color: #30C090;
 }
 
-#contact_link {
+a:link, a:hover, a:visited {
   color: #303030;
   text-decoration: underline;
-}
-
-/* all links on this page */
-a:link, a:hover, a:visited {
-  color: #E6E6E6;
-  text-decoration:none;
 }
 
 a:hover {
   cursor: pointer;
 }
+
+/* all links in the article section */
+article a:link, article a:hover, article a:visited,
+header a:link, header a:hover, header a:visited {
+  color: #E6E6E6;
+  text-decoration: none;
+}
+
+/* except the contact links in search results */
+#contact_link {
+  color: #303030;
+  text-decoration: underline;
+}
+
 
 /*		Tablet Layout: 768px.
 		Gutters: 24px.
@@ -262,21 +271,16 @@ px      68    160    252    344    436    */
 
 .take2_header {
   width: 652px;
+  padding: 5px;
   background-color: #30C090;
 }
 
 .take2_header_icon {
   width: 24px;
   height: 24px;
-  float: left;
-  margin-top: -5px;
+  float: right;
+  margin-top: -25px;
   padding-right: 10px;
-  margin-bottom: 10px;
-}
-
-.take2_header_text {
-    font-size: 12px;
-    color: #333333;
 }
 
 .input_text {

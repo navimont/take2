@@ -131,13 +131,13 @@ def encode_contact(contact, login_user, include_attic=False):
 
     result = ContactView(contact)
 
-    if not login_user:
-        # the name is all which anonymous users will see
-        return result
-
     if contact.class_name() == "Person":
         if contact.lastname:
             result.lastname = contact.lastname
+
+    if not login_user:
+        # the name is all which anonymous users will see
+        return result
 
     # In order to reveal more data, we must check if 'me' is allowed
     # to see it.

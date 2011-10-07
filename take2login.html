@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+		<meta charset="utf-8"/>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+    <meta name="description" content="Linked Address Book"/>
+    <!-- Opengraph.org tags -->
+    <meta property="og:title" content="Take2 - Linked Address Book" />
+    <meta property="og:type" content="non_profit" />
+    <meta property="og:url" content="http://www.navimont.com/" />
+    <meta property="og:site_name" content="" />
+    <meta property="og:description" content=""/>
+    <!-- weschnitz browser tab icon -->
+    <!-- <link rel="shortcut icon" href=""> -->
+
+    <!-- openid -->
+    <link type="text/css" rel="stylesheet" href="/static/openid/css/openid.css" />
+    <script type="text/javascript" src="/static/openid/js/jquery-1.2.6.min.js"></script>
+    <script type="text/javascript" src="/static/openid/js/openid-jquery.js"></script>
+    <script type="text/javascript" src="/static/openid/js/openid-en.js"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+        openid.init('openid_identifier');
+    });
+    </script>
+
+    <!-- Stylesheets -->
+		<link rel="stylesheet" media="all" href="/static/take2.css"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>{% block pagetitle %}{% endblock %}</title>
+  </head>
+
+  <body lang="en">
+    <header id="masthead">
+      <a class="gigantic" href="/">Weschnitz</a>
+      <p class="bigger">Simply an online address book.</p>
+    </header>
+    <div id='page_content'>
+      <div>
+        <p></p>
+        <form action="/openid_login" method="get" id="openid_form">
+         <input type="hidden" name="action" value="verify" />
+
+         <fieldset>
+          <div id="openid_choice">
+           <p>Please click your account provider:</p>
+           <div id="openid_btns"></div>
+          </div>
+          <div id="openid_input_area">
+           <input id="openid_identifier" name="openid_identifier" type="text" value="http://" />
+           <input id="openid_submit" type="submit" value="Sign-In"/>
+
+          </div>
+          <noscript>
+           <p>OpenID is service that allows you to log-on to many different websites using a single indentity.
+           Find out <a href="http://openid.net/what/">more about OpenID</a> and <a href="http://openid.net/get/">how to get an OpenID enabled account</a>.</p>
+          </noscript>
+         </fieldset>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
+

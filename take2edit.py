@@ -19,6 +19,7 @@ from take2access import MembershipRequired, write_access, visible_contacts
 from take2view import encode_contact
 from take2geo import geocode_lookup
 from take2index import check_and_store_key
+from take2misc import prepare_birthday_selectors
 
 class ContactEdit(webapp.RequestHandler):
     """present a contact including old data (attic) for editing"""
@@ -36,16 +37,6 @@ class ContactEdit(webapp.RequestHandler):
             self.error(500)
             return
 
-        # call here geocoding for addresses which don't have filled the geo position
-        q_adr = Address.all().filter("attic =", False).filter("contact_ref =", con)
-        for adr in q_adr:
-            if not adr.location:
-                loc = geocode_lookup("%s, %s" % (", ".join(adr.adr),adr.country))
-                if 'lat' in loc and 'lon' in loc:
-                    adr.location = db.GeoPt(lat=float(loc['lat']),lon=float(loc['lon']))
-                    adr.adr_zoom = loc['adr_zoom']
-                    adr.put()
-
         contact = encode_contact(con, login_user, include_attic=True)
 
         # render edit page
@@ -53,31 +44,6 @@ class ContactEdit(webapp.RequestHandler):
         path = os.path.join(os.path.dirname(__file__), 'take2edit.html')
         self.response.out.write(template.render(path, template_values))
 
-
-class PersonNew(webapp.RequestHandler):
-    """Add a new personal contact"""
-
-    @MembershipRequired
-    def get(self, login_user=None, template_values={}):
-        back_ref_key = self.request.get("key", None)
-
-        if back_ref_key:
-            # this is the person the new contact relates to (not necessarily the logged in user - me)
-            back_ref = Person.get(back_ref_key)
-            template_values['back_ref'] = back_ref_key
-            template_values['back_ref_name'] = back_ref.name
-            template_values['titlestr'] = "New contact for %s %s" % (back_ref.name, back_ref.lastname)
-        else:
-            template_values['titlestr'] = "New contact for %s %s" % (login_user.me.name, login_user.me.lastname)
-
-        # all this stuff has to be in the form to have it ready if the
-        # form has to be re-displayed after field error check (in PersonSave)
-        template_values['form_file'] = 'take2form_person.html'
-        template_values['instance'] = 'person'
-        template_values['action'] = 'new'
-
-        path = os.path.join(os.path.dirname(__file__), template_values['form_file'])
-        self.response.out.write(template.render(path, template_values))
 
 
 class PersonSave(webapp.RequestHandler):
@@ -104,13 +70,6 @@ class PersonSave(webapp.RequestHandler):
         # update database
         #
         try:
-            # allow the user to make input like 13/8
-            bd = ("0%s/0/0" % self.request.get("birthday", "").strip()).split("/")
-            day = int(bd[0])
-            month = int(bd[1])
-            year = int(bd[2])
-            if day < 0 or day > 31 or month < 0 or month > 12 or year < 0 or year > 9999:
-                raise db.BadValueError('Illegal date')
             if action == 'new':
                 person = Person(name=self.request.get("firstname", ""),
                                 lastname=self.request.get("lastname", ""))
@@ -118,7 +77,25 @@ class PersonSave(webapp.RequestHandler):
             else:
                 person.name = self.request.get("firstname", "")
                 person.lastname = lastname=self.request.get("lastname", "")
-            person.birthday = FuzzyDate(day=day,month=month,year=year)
+            try:
+                birthday = int(self.request.get("birthday", None))
+            except ValueError:
+                birthday = 0
+            except TypeError:
+                birthday = 0
+            try:
+                birthmonth = int(self.request.get("birthmonth", None))
+            except ValueError:
+                birthmonth = 0
+            except TypeError:
+                birthmonth = 0
+            try:
+                birthyear = int(self.request.get("birthyear", None))
+            except ValueError:
+                birthyear = 0
+            except TypeError:
+                birthyear = 0
+            person.birthday = FuzzyDate(day=birthday,month=birthmonth,year=birthyear)
             back_ref = self.request.get("back_ref", None)
             if back_ref:
                 person.back_ref = Key(back_ref)
@@ -361,6 +338,50 @@ def KeyRequired(target):
 
     return wrapper
 
+class New(webapp.RequestHandler):
+    """New property or contact"""
+
+    def new_person(self, login_user=None, template_values={}):
+        back_ref_key = self.request.get("key", None)
+
+        if back_ref_key:
+            # this is the person the new contact relates to (not necessarily the logged in user - me)
+            back_ref = Person.get(back_ref_key)
+            template_values['back_ref'] = back_ref_key
+            template_values['back_ref_name'] = back_ref.name
+            template_values['titlestr'] = "New contact for %s %s" % (back_ref.name, back_ref.lastname)
+        else:
+            template_values['titlestr'] = "New contact for %s %s" % (login_user.me.name, login_user.me.lastname)
+
+        # all this stuff has to be in the form to have it ready if the
+        # form has to be re-displayed after field error check (in PersonSave)
+        template_values['form_file'] = 'take2form_person.html'
+        template_values['instance'] = 'person'
+        template_values['action'] = 'new'
+        template_values.update(prepare_birthday_selectors())
+
+        path = os.path.join(os.path.dirname(__file__), template_values['form_file'])
+        self.response.out.write(template.render(path, template_values))
+
+    def new_take2(self, login_user=None, template_values={}):
+        """new take2 objects are this is handled by the edit handler"""
+
+        uri = "/edit?action=new&instance=%s&key=%s" % (self.request.get("instance", ""),self.request.get("key", ""))
+        self.redirect(uri)
+
+
+    @MembershipRequired
+    def get(self, login_user=None, template_values={}):
+        instance = self.request.get("instance", Key(self.request.get("key")).kind())
+        if instance == 'Person':
+            New.new_person(self,login_user,template_values)
+        elif instance == 'Company':
+            New.new_person(self,login_user,template_values)
+        elif instance == 'Contact':
+            New.new_person(self,login_user,template_values)
+        else:
+            New.new_take2(self,login_user,template_values)
+
 
 class Edit(webapp.RequestHandler):
     """Edit property or contact"""
@@ -428,7 +449,10 @@ class Edit(webapp.RequestHandler):
             template_values['nickname'] = person.nickname
         if person.lastname:
             template_values['lastname'] = person.lastname
-        template_values['birthday'] = person.birthday
+        template_values.update(prepare_birthday_selectors())
+        template_values['birthday'] = str(person.birthday.get_day())
+        template_values['birthmonth'] = str(person.birthday.get_month())
+        template_values['birthyear'] = str(person.birthday.get_year())
         if person.back_ref:
             template_values['back_ref'] = str(person.back_ref.key())
             template_values['back_ref_name'] = person.back_ref.name
@@ -444,9 +468,9 @@ class Edit(webapp.RequestHandler):
         template_values['action'] = 'edit'
         template_values['key'] = person_key
 
+        logging.debug(template_values)
         path = os.path.join(os.path.dirname(__file__), template_values['form_file'])
         self.response.out.write(template.render(path, template_values))
-
 
 
     def edit_take2(self, login_user=None, template_values={}):
@@ -672,12 +696,11 @@ class Edittest(webapp.RequestHandler):
 
 
 application = webapp.WSGIApplication([('/editcontact', ContactEdit),
-                                      ('/newcompany', CompanyNew),
                                       ('/savecompany', CompanySave),
-                                      ('/newperson', PersonNew),
                                       ('/saveperson', PersonSave),
                                       ('/edittest', Edittest),
                                       ('/edit.*', Edit),
+                                      ('/new.*', New),
                                       ('/save.*', Take2Save),
                                       ('/attic.*', Attic),
                                       ('/deattic.*', Deattic),

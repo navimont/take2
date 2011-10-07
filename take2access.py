@@ -9,10 +9,8 @@ from google.appengine.api import users
 from take2dbm import Person, Contact, LoginUser, FuzzyDate
 from google.appengine.api import memcache
 from google.appengine.api import users
-from google.appengine.ext import webapp
-from google.appengine.ext.webapp import template
-from google.appengine.ext.webapp.util import run_wsgi_app
 from take2index import check_and_store_key
+from take2misc import prepare_birthday_selectors
 
 def write_access(obj, login_user):
     """Makes sure that me can edit the object
@@ -37,8 +35,10 @@ def write_access(obj, login_user):
 
     return True
 
-def get_login_user(google_user):
+def get_login_user():
     """Find the account which represents the currently logged in google user"""
+
+    google_user = users.get_current_user()
 
     if not google_user:
         return None
@@ -51,28 +51,30 @@ def get_login_user(google_user):
             logging.error ("more than one person with google account: %s [%s]" % (user.nickname,user.user_id))
         me = me[0]
     else:
-        logging.info("Create new User for %s %s" % (google_user.nickname(), google_user.email()))
-        me = LoginUser(user=google_user, location=db.GeoPt(0,0))
-        me.put()
+        logging.error ("No Person registered for login_user")
+        return None
 
-    logging.debug("google-user: %s login_user: %s" % (google_user.nickname(),me.user.nickname()))
     return me
 
 
-def get_current_user_template_values(google_user, page_uri, template_values=None):
+def get_current_user_template_values(login_user, page_uri, template_values=None):
     """Set up a set of template values
     Helpful for rendering the web page with some basic information about the user.
     """
     if not template_values:
         template_values = {}
 
-    if google_user:
+    if login_user:
         template_values['signed_in'] = True
-        template_values['loginout_url'] = users.create_logout_url(page_uri)
-        template_values['loginout_text'] = 'logout %s' % (google_user.nickname())
+        template_values['login_user_key'] = str(login_user.key())
+        template_values['loginout_url'] = users.create_logout_url('/')
+        if login_user.me:
+            template_values['loginout_text'] = 'logout %s' % (login_user.me.name)
+        else:
+            template_values['loginout_text'] = 'logout'
     else:
         template_values['signed_in'] = False
-        template_values['loginout_url'] = users.create_login_url(page_uri)
+        template_values['loginout_url'] = '/login'
         template_values['loginout_text'] = 'login'
     return template_values
 
@@ -83,28 +85,19 @@ def MembershipRequired(target):
     Also prepares the google user object, the user's take2 identity and some
     template_values and calls the target function with those as parameters.
     """
-
-    def redirectToSignupPage(self):
-        path = os.path.join(os.path.dirname(__file__), 'take2welcome.html')
-        self.response.out.write(template.render(path, []))
-        return
-
     def redirectToLoginPage(self):
-        self.redirect(users.create_login_url(self.request.uri))
+        self.redirect('/login')
         return
 
     def wrapper (self):
         # find my own Person object
-        google_user = users.get_current_user()
-        if not google_user:
-            return redirect_to_login_page
-        login_user = get_login_user(google_user)
+        login_user = get_login_user()
         if not login_user.me:
-            return redirectToSignupPage
+            return redirectToLoginPage
         else:
             # Add extra parameters
             kwargs = {'login_user': login_user,
-                      'template_values': get_current_user_template_values(google_user, self.request.uri)}
+                      'template_values': get_current_user_template_values(login_user, self.request.uri)}
             return target(self, **kwargs)
 
     return wrapper
@@ -145,82 +138,4 @@ def visible_contacts(login_user, include_attic=False, refresh=False):
         logging.error("memcache failed for key: %s" % str(login_user.key()))
 
     return visible
-
-class Take2Signup(webapp.RequestHandler):
-    """User signup. Enter first name, last name and connect to a LoginUser (google) account"""
-
-    def get(self):
-        """processes the signup form"""
-        google_user = users.get_current_user()
-        login_user = get_login_user(google_user)
-        template_values = get_current_user_template_values(google_user,self.request.uri)
-
-        # not logged in
-        if not google_user:
-            self.redirect(users.create_login_url(self.request.uri))
-            return
-
-        # already connected
-        if login_user.me:
-            self.redirect('/search')
-            return
-
-        template_values['errors'] = []
-
-        name=self.request.get("name", None)
-        if not name:
-            template_values['errors'].append("Your name is the only required field. Please fill it in.")
-        terms=self.request.get("terms", None)
-        if not terms:
-            template_values['errors'].append("You must also acknowledge the terms and conditions.")
-
-        if not template_values['errors']:
-            person = Person(name=name, lastname=self.request.get("lastname", None))
-            try:
-                birthday = int(self.request.get("birthday", None))
-            except ValueError:
-                birthday = 0
-            except TypeError:
-                birthday = 0
-            try:
-                birthmonth = int(self.request.get("birthmonth", None))
-            except ValueError:
-                birthmonth = 0
-            except TypeError:
-                birthmonth = 0
-            person.birthday = FuzzyDate(day=birthday,month=birthmonth,year=0000)
-            person.owned_by = login_user
-            person.put()
-            # generate search keys for new contact
-            check_and_store_key(person)
-            # Connect to LoginUser
-            login_user.me = person
-            login_user.put()
-
-        if len(template_values['errors']):
-            # prepare list of days and months
-            daylist = ["(skip)"]
-            daylist.extend([str(day) for day in range(1,32)])
-            template_values['daylist'] = daylist
-            monthlist=[(str(i),calendar.month_name[i]) for i in range(13)]
-            monthlist[0] = ("0","(skip)")
-            template_values['monthlist'] = monthlist
-            for arg in self.request.arguments():
-                template_values[arg] = self.request.get(arg)
-            path = os.path.join(os.path.dirname(__file__), "take2welcome.html")
-            self.response.out.write(template.render(path, template_values))
-            return
-
-        self.redirect('/search')
-
-
-application = webapp.WSGIApplication([('/signup', Take2Signup),
-                                      ],debug=settings.DEBUG)
-
-def main():
-    logging.getLogger().setLevel(settings.LOG_LEVEL)
-    run_wsgi_app(application)
-
-if __name__ == "__main__":
-    main()
 

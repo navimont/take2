@@ -43,11 +43,41 @@
           form.submit();
       }
 
+      var georequest = new XMLHttpRequest();
+
+      function position_error_cb (err) {
+          var user = $("[name='login_user_key']").val();
+          var url = "/location?user="+user+"&err="+err.code;
+          georequest.open("GET", url, true);
+          // we are not interested in any reply
+          georequest.send(null);
+      }
+
+      function position_cb (position) {
+          var user = $("[name='login_user_key']").val();
+          var url = "/location?user="+user+"&lat="+position.coords.latitude+"&lon="+position.coords.longitude;
+          georequest.open("GET", url, true);
+          // we are not interested in any reply
+          georequest.send(null);
+      }
+
+      function locate_me() {
+          if (!navigator.geolocation) {
+              return;
+          }
+          // maximumAge in milliseconds
+          navigator.geolocation.getCurrentPosition(position_cb, position_error_cb, {timeout: 10000, maximumAge: 300000});
+      }
+
       $(document).ready(function() {
           // auto-complete for search box
           $("input#autocomplete").autocomplete( {
               source: "/lookup"
               });
+          ask_geolocation = $("[name='geolocation_request']").val()
+          if (ask_geolocation == "True") {
+              locate_me();
+          }
       });
     </script>
   </head>
@@ -65,6 +95,8 @@
       <a class="gigantic" href="/">Weschnitz</a>
       <p class="bigger">Simply an online address book.</p>
       <form name="search" action="/search" method="GET">
+          <input type="hidden" name="geolocation_request" value="{{geolocation_request}}">
+          <input type="hidden" name="login_user_key" value="{{login_user_key}}">
           <input type="hidden" value="search">
           <input id="autocomplete" type="text" name="query" value="{{ query|escape }}">
           <input type="submit" value="Search">

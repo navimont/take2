@@ -57,20 +57,14 @@
         <div class="take2_section">
           <div class="take2_header">
             <div>
-              <a href="javascript:void(0)" onClick="post_to_url('/edit', {'action': 'new', 'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
-                  <img class="take2_header_icon" src="/static/icon-new.png" alt="New">
-              </a>
-              <a class="take2_header_text" href="javascript:void(0)" onClick="post_to_url('/edit', {'action': 'new', 'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
-                <h3> {{take2.header}}</h3>
-              </a>
+              <h3>
+                  <a  href="javascript:void(0)" onClick="post_to_url('/new', {'instance': '{{take2.class_name}}', 'key': '{{contact.key}}' });">
+                  New:</a> {{take2.header}}
+              </h3>
             </div>
             {% if take2.has_attic %}
-              <div style="height: 10px"></div>
-              <a class="take2_header_toggle" href="javascript:void(0)">
+              <a class="take2_header_toggle" href="javascript:void(0)" title="show/hide deleted items">
                   <img class="take2_header_icon" src="/static/icon-undelete.png" alt="New">
-              </a>
-              <a class="take2_header_toggle" href="javascript:void(0)">
-                Show/hide deleted items
               </a>
             {% endif %}
           </div>
@@ -95,7 +89,7 @@
                     <a href="javascript:void(0)" onClick="post_to_url('/editcontact', {'key': '{{data.key}}' });">
                       {{data.data}}
                   {% else %}
-                    <a href="javascript:void(0)" onClick="post_to_url('/edit', {'action': 'edit', 'instance': '{{data.class_name}}', 'key': '{{data.key}}' });">
+                    <a href="javascript:void(0)" title="edit this {{take2.header}}" onClick="post_to_url('/edit', {'action': 'edit', 'instance': '{{data.class_name}}', 'key': '{{data.key}}' });">
                       {{data.data}}
                   {% endif %}
                   </a>

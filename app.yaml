@@ -1,4 +1,4 @@
-application: sweschnitz
+application: take2nitz
 version: 1
 runtime: python
 api_version: 1
@@ -13,8 +13,8 @@ handlers:
 - url: (/|/search.*)
   script: take2search.py
 
-- url: (/signup.*)
-  script: take2access.py
+- url: (/login|/_ah/login_required|/welcome|/openid_login|/signup)
+  script: take2login.py
 
 - url: /(index|lookup)
   script: take2index.py
@@ -23,7 +23,7 @@ handlers:
   script: take2edit.py
   login: required
 
-- url: /geo.*
+- url: /location.*
   script: take2geo.py
   login: required
 

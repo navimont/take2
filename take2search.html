@@ -1,22 +1,23 @@
 {% extends "take2baseclass.html" %}
 
 {% block content %}
-    <header>
-      {% if signed_in %}
-        <!-- Show birthdays for signed in users -->
-        {% if birthdays %}
+    {% if signed_in %}
+      <!-- Show birthdays for signed in users -->
+      {% if birthdays %}
+        <header>
           <h1>Birthdays</h1>
           <ul id="birthdays">
             {% for person in birthdays %}
               <li>{{ person.name }} {% if person.nickname %} ({{ person.nickname }}) {% endif %} *{{ person.birthday }}
             {% endfor %}
           </ul>
-        {% endif %}
-      {% else %}
-        <p>You need to sign in to enter your own address book on this site (a google account will do).</p>
-        <div style="width: 300px; height: 30px;"></div>
+        </header>
       {% endif %}
-    </header>
+    {% else %}
+        <p>You can search for people here who have some of their contact information made public.</p>
+        <p>If you want to start tour own address book, you need to <a href="/login">sign in</a>. Simply use your existing account with google, yahoo or another <a href="http://openid.net/">openId</a> provider.</p>
+        <div style="width: 300px; height: 30px;"></div>
+    {% endif %}
     {% if result %}
         {% if query %}
           <header>
@@ -25,17 +26,19 @@
         {% endif %}
       {% for contact in result %}
         <article id="results">
-          <aside class="contact_navigation">
-            <ul>
-              {% if contact.can_edit %}
-                <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">edit</a></li>
-                <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">share</a></li>
-              {% else %}
-                <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">connect</a></li>
-              {% endif %}
-              <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">locate</a></li>
-            </ul>
-          </aside>
+          {% if signed_in %}
+            <aside class="contact_navigation">
+              <ul>
+                {% if contact.can_edit %}
+                  <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">edit</a></li>
+                  <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">share</a></li>
+                {% else %}
+                  <!-- <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">connect</a></li> -->
+                {% endif %}
+                <!-- <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">locate</a></li> -->
+              </ul>
+            </aside>
+          {% endif %}
           <header>
             <h2>
               {{ contact.name }}
@@ -85,14 +88,16 @@
         <header>
       {% endif %}
     {% endif %}
-    {% if not query %}
-      <div style="width: 300px; height: 30px;"></div>
-      <h2>This is your main page at Weschnitz!</h2>
-      <h3>What you can do from here:</h3>
-        <ul>
-            <li>Your personal data is being displayed above. You can edit or extend it by adding phone numers, a new address etc.</li>
-            <li>Enter more of your friend's addresses. Use the 'New contact' menu entry in the upper right corner.</li>
-        </ul>
+    {% if signed_in %}
+      {% if not query %}
+        <div style="width: 300px; height: 30px;"></div>
+        <h2>The search page at Weschnitz.</h2>
+        <h3>What you can do from here:</h3>
+          <ul>
+              <li>Your personal data is displayed above. You can add phone numers, a new address etc.</li>
+              <li>Use the 'New contact' menu entry in the upper right corner to add more people to your address book.</li>
+          </ul>
+      {% endif %}
     {% endif %}
   <footer>
   </footer>

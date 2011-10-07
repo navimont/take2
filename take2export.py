@@ -134,7 +134,7 @@ class Take2Export(webapp.RequestHandler):
     """Export the relation between icons and osm tags (backup)"""
 
     def get(self):
-        user = users.get_current_user()
+        login_user = get_login_user()
 
         format = self.request.get("format", "JSON")
 
@@ -144,8 +144,8 @@ class Take2Export(webapp.RequestHandler):
             return
 
         # not logged in
-        if not user:
-            self.redirect(users.create_login_url(self.request.uri))
+        if not login_user:
+            self.redirect('/login')
             return
 
         if self.request.get('attic',"") == 'True':
@@ -195,12 +195,12 @@ class Take2SelectImportFile(webapp.RequestHandler):
     """Present upload form for import file"""
 
     def get(self):
-        user = users.get_current_user()
-        template_values = get_current_user_template_values(user,self.request.uri)
+        login_user = get_login_user()
+        template_values = get_current_user_template_values(login_user,self.request.uri)
 
         # not logged in
-        if not user:
-            self.redirect(users.create_login_url(self.request.uri))
+        if not login_user:
+            self.redirect('/login')
             return
 
         path = os.path.join(os.path.dirname(__file__), "take2import_file.html")
@@ -217,9 +217,8 @@ class Take2Import(webapp.RequestHandler):
     """Import data into database"""
 
     def post(self):
-        google_user = users.get_current_user()
-        template_values = get_current_user_template_values(google_user,self.request.uri)
-        login_user = get_login_user(google_user)
+        login_user = get_login_user()
+        template_values = get_current_user_template_values(login_user,self.request.uri)
 
         format = self.request.get("json", None)
         if not format:
@@ -228,8 +227,8 @@ class Take2Import(webapp.RequestHandler):
             format = 'JSON'
 
         # not logged in
-        if not google_user:
-            self.redirect(users.create_login_url("/import"))
+        if not login_user:
+            self.redirect('/login')
             return
 
         if memcache.get('import_status'):
@@ -290,7 +289,7 @@ class Take2ImportTask(webapp.RequestHandler):
             self.error(500)
             return
 
-        logging.info("Retrieved %d bytes for processing." % (len(data)) )
+        logging.info("Retrieved %d bytes for processing. user=%s" % (len(data),login_user.me.name) )
         memcache.set('import_status', "Parsing import data.", time=10)
 
         format=self.request.get("format", None)
@@ -304,6 +303,7 @@ class Take2ImportTask(webapp.RequestHandler):
         contact_entries = db.Query(Contact,keys_only=True)
         contact_entries.filter("owned_by =", login_user)
         count = 0
+        delete_contacts = []
         for c in contact_entries:
             # delete all dependent data
             q_t = db.Query(Take2,keys_only=True)
@@ -314,7 +314,10 @@ class Take2ImportTask(webapp.RequestHandler):
             db.delete(q_i)
             count = count +1
             memcache.set('import_status', "Deleting data: %d deleted." % (count), time=3)
-        db.delete(contact_entries)
+            # remember for bulk delete except the one which is the login_user's Person
+            if c != login_user.me:
+                delete_contacts.append(c)
+        db.delete(delete_contacts)
         logging.info("Import task deleted %d contact datasets" % (count))
 
         # dictionary will be filled with a reference to the freshly created person
@@ -405,11 +408,12 @@ class Take2ImportTask(webapp.RequestHandler):
         #
         # Resolve (if possible) the reference of the LoginUser to his/her own Person entry
         #
-        login_user.me = None
-        login_user.put()
         for t2 in take2_entries:
             if t2.class_name() == "Email":
                 if t2.email == login_user.user.email():
+                    # throw away existing login_user Person
+                    login_user.me.delete()
+                    login_user.put()
                     login_user.me = t2.contact_ref
                     login_user.put()
                     logging.info("Resolved LoginUsers Person: %s using email: %s" % (t2.contact_ref.name, t2.email))

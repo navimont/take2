@@ -2,12 +2,10 @@ A linked address database
 
 Take2 - Address-Datenbank
 
+*** New Features
 
-manage application:
-https://appengine.google.com/
-
-New Features
-
+* stelle emails grafisch dar to avoid spam
+* internationalization http://blog.yjl.im/2009/02/using-django-i18n-in-google-app-engine.html
 * User Avatars
 * Weblinks blenden das Icon der Seite ein
 * Gmail oeffnen wenn auf email adresse geklickt wird
@@ -18,6 +16,23 @@ New Features
 * special layout for smartphones
 * Unsubscribe
 * Export data for christmas card lists or other meetups
+
+*** Development process
+
+* Upload
+./appcfg.py --no_cookies -e stefan@weschnitz.com update ../take2
+
+* manage application:
+https://appengine.google.com/
+
+*** History
+
+I have two appspots
+- take2wesch for the application using a high replication datastore and
+- take2nitz which uses master/slave
+
+
+*** Resources
 
 # On how to fetch data from remote server
 # and how to serve images from the datastore!
@@ -46,3 +61,13 @@ dev_appserver.py --clear_datastore ~/epoi
 
 # HTML5
 http://diveintohtml5.org
+
+# Layout
+http://www.colorschemer.com/online.html
+
+# OpenId login
+http://plugins.jquery.com/project/OpenId
+
+- In the javascript source openid-jquery.js the image path needs to be adapted:
+	img_path : '/static/openid/images/',
+

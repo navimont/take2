@@ -6,17 +6,14 @@
         <tr>
             <td id="formtag">First name(s)</td>
             <td><input name="firstname" type="text" value="{{firstname}}"></td>
-            <td id="formhint"></td>
-        <tr>
-        </tr>
             <td id="formtag">Nickname</td>
             <td><input name="nickname" type="text" value="{{nickname}}"></td>
-            <td id="formhint"></td>
         <tr>
         </tr>
             <td id="formtag">Last name</td>
             <td><input name="lastname" type="text" value="{{lastname}}"></td>
-            <td id="formhint"></td>
+            <td></td>
+            <td></td>
         <tr>
         {% if back_ref %}
         </tr>
@@ -26,13 +23,30 @@
             <td>
               <input name="back_rel" type="text" value="{{back_rel}}">
             </td>
-            <td>Please describe your contact's relation to this person/company.</td>
+            <td colspan="2">Please describe your contact's relation to this person/company.</td>
         <tr>
         {% endif %}
         </tr>
             <td id="formtag">Birthday</td>
-            <td><input name="birthday" type="text" value="{{birthday}}"></td>
-            <td id="formhint">(enter as dd/mm/yyyy Replace unknown numbers with 0)</td>
+            <td>
+              <select name="birthday" size="0" id="person_birthday">
+                {% for day in daylist %}
+                  <option {% if birthday == day %}selected{% endif %} value="{{day}}">{{day}}</option>
+                {% endfor %}
+              </select>
+              <select name="birthmonth" size="0" id="person_birthmonth">
+                {% for month in monthlist %}
+                  <option {% if birthmonth == month.0 %}selected{% endif %} value="{{month.0}}">{{month.1}}</option>
+                {% endfor %}
+              </select>
+              <select name="birthyear" size="0" id="person_birthyear">
+                {% for year in yearlist %}
+                  <option {% if birthyear == year %}selected{% endif %} value="{{year}}">{{year}}</option>
+                {% endfor %}
+              </select>
+            <td>
+            <td></td>
+            <td></td>
         </tr>
     </table>
 {% endblock %}
