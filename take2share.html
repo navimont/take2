@@ -1,0 +1,106 @@
+{% extends "take2baseclass.html" %}
+
+{% block content %}
+    <script type="text/javascript">
+      var transactions=new Array;
+      // as first item store user key
+      transactions.push('{{contact.key}}');
+
+      // remember all clicks to submit the changes with the form
+      function update_submit_value() {
+          $("[name='transactions']").val(JSON.stringify(transactions));
+      }
+
+      // handlers for toggling the privacy selector buttons
+      // private --> restricted --> public --> private
+      function to_restricted() {
+          var key = $(this).attr("value");
+          transactions.push({'key': key, 'privacy': 'restricted'});
+          update_submit_value();
+          $(this).replaceWith('<div class="privacy_restricted" value="'+key+'">restriced</div>');
+          $('div.privacy_restricted').unbind("click").click(to_public);
+      }
+
+      function to_public(element) {
+          var key = $(this).attr("value");
+          transactions.push({'key': key, 'privacy': 'public'});
+          update_submit_value();
+          $(this).replaceWith('<div class="privacy_public" value="'+key+'">public</div>');
+          $('div.privacy_public').unbind("click").click(to_private);
+      }
+
+      function to_private(element) {
+          var key = $(this).attr("value");
+          transactions.push({'key': key, 'privacy': 'private'});
+          update_submit_value();
+          $(this).replaceWith('<div class="privacy_private" value="'+key+'">private</div>');
+          $('div.privacy_private').unbind("click").click(to_restricted);
+      }
+
+      // install on click handlers for all privacy selector buttons
+      $(document).ready(function() {
+          // click handler for privacy boxes
+          $('div.privacy_private').click(to_restricted);
+          $('div.privacy_restricted').click(to_public);
+          $('div.privacy_public').click(to_private);
+      });
+    </script>
+
+    <p>Click on the boxes next to your contact information to decide whether it should be:</p>
+    <ul>
+        <li>entirely <em>private</em> and only visble to you</li>
+        <li><em>restricted</em>, so that your friends can see it but not anyone else</li>
+        <li><em>public</em>, open for anyone.</li>
+    </ul>
+
+    <div style="width: 300px; height: 30px;"></div>
+
+    <form name="save" action="/sharesave" method="POST">
+      <input type="hidden" value="" name="transactions">
+      <input type="submit" value="Save"/>
+      <input type="reset" value="Cancel" onClick="window.history.back()">
+    </form>
+
+    <div style="width: 300px; height: 30px;"></div>
+
+    <article id="results">
+      <header>
+        <h2>
+          {{ contact.name }}
+          {% if contact.nickname %}
+              ({{contact.nickname}})
+          {% endif %}
+          {{contact.lastname}}
+          {% if contact.birthday %}
+              &nbsp;*{{contact.birthday}} {{contact.birthmonth}}
+          {% endif %}
+        </h2>
+      </header>
+      <!-- properties for this contact -->
+      {% for take2 in contact.take2 %}
+        {% if take2.has_data %}
+          {% if take2.class_name != 'Contact' %}
+            <hr>
+            <ul>
+              {% for data in take2.data %}
+                <aside class="contact_privacy">
+                  {% if data.privacy == 'public' %}
+                    <div class="privacy_public" value="{{data.key}}">{{data.privacy}}</div>
+                  {% else %}
+                    {% if data.privacy == 'restricted' %}
+                      <div class="privacy_restricted" value="{{data.key}}">{{data.privacy}}</div>
+                    {% else %}
+                      <div class="privacy_private" value="{{data.key}}">{{data.privacy}}</div>
+                    {% endif %}
+                  {% endif %}
+                </aside>
+                <li>{{data.data}}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    </article>
+  <footer>
+  </footer>
+{% endblock %}

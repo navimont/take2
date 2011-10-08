@@ -62,31 +62,6 @@ def upcoming_birthdays(login_user):
     return res
 
 
-def ask_geolocation(login_user):
-    """function determines whether user shall be asked to submit positon or not
-
-    Checks global setting and if global setting is True or not existent
-    it will ask.
-    If the user declined the request, it will not ask for the rest of the week.
-    """
-
-    if login_user.ask_geolocation:
-        if login_user.ask_geolocation[0] == True:
-            if len(login_user.ask_geolocation) > 1:
-                # there may be restrictions regarding the time when I can ask again
-                if login_user.ask_geolocation[1] > datetime.today():
-                    return False
-
-            return True
-        else:
-            return False
-    else:
-        # default is True
-        login_user.ask_geolocation = [True]
-        login_user.put()
-        return True
-
-
 
 class Take2Search(webapp.RequestHandler):
     """Run a search query over the current user's realm"""
@@ -99,15 +74,24 @@ class Take2Search(webapp.RequestHandler):
         contact_key = self.request.get('key',"")
         archive = True if self.request.get('attic',"") == 'True' else False
 
-        # ask user for geolocation
-        template_values['geolocation_request'] = ask_geolocation(login_user)
+        if login_user:
+            # ask user for geolocation. The date check makes sure that we don't bother the user
+            # with the request too often. Users who disable the geolocation feature have a
+            # date a couple of years in the future.
+            if not login_user.ask_geolocation or login_user.ask_geolocation < datetime.now():
+                template_values['geolocation_request'] = True
+                # set time for next request in the future. This setting becomes active if the
+                # user declines the request in her browser. If she does cooperate,
+                # take2geo will set the ask_geolocation to a time much closer to now
+                login_user.ask_geolocation = datetime.now() + timedelta(hours=30)
+                login_user.put()
 
         logging.debug("Search query: %s archive: %d key: %s " % (query,archive,contact_key))
 
         result = []
 
         #
-        # last search button (home) was clicked
+        # 'last search' button (home) was clicked
         #
 
         if login_user and self.request.get('last', False) == 'True':
@@ -144,8 +128,10 @@ class Take2Search(webapp.RequestHandler):
             template_values['result_size'] = len(cis)
             template_values['query'] = query
             for contact in db.get(cis[0:settings.RESULT_SIZE]):
-                con = encode_contact(contact, include_attic=False, login_user=login_user)
-                result.append(con)
+                # I did not understand why but there was once a key without object coming up
+                if contact:
+                    con = encode_contact(contact, include_attic=False, login_user=login_user)
+                    result.append(con)
 
         elif len(result) == 0:
             # display current user data

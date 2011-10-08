@@ -93,15 +93,15 @@ class LoginUser(GeoModel):
     # google login
     user = db.UserProperty()
     # location attribute comes from parent class and is required
-    location_timestamp = db.DateTimeProperty(auto_now=True)
+    location_timestamp = db.DateTimeProperty()
     # points to the Person which represents this user
     # (can't use the Person qualifier because Person is not defined yet)
     me = db.ReferenceProperty()
     #
     # Settings
     #
-    # if true, ask user for geolocation at every search
-    ask_geolocation = db.ListProperty(bool, default=[True])
+    # ask user for her location not before this date!
+    ask_geolocation = db.DateTimeProperty()
 
 class Contact(polymodel.PolyModel):
     """Base class for person and Company"""
@@ -204,5 +204,16 @@ class ContactIndex(db.Model):
 
     plain_key_ref = db.ReferenceProperty(PlainKey)
     contact_ref = db.ReferenceProperty(Contact)
+
+class SharedTake2(polymodel.PolyModel):
+    """Holds a list of take2 properties which may be seen by the public or friends"""
+    contact_ref = db.ReferenceProperty(Contact)
+    take2_ref = db.ReferenceProperty(Take2)
+
+class PublicTake2(SharedTake2):
+    """Holds a list of take2 properties which may be seen by the public"""
+
+class RestrictedTake2(SharedTake2):
+    """Holds a list of take2 properties which may be seen by friends"""
 
 

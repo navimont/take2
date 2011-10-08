@@ -159,6 +159,7 @@ article {
 /* floating navigation box alongside a #result */
 .contact_navigation, .contact_edit {
   float: left;
+  text-align: right;
 	width: 66px;
 	padding: 5px;
 	margin-left: -100px;
@@ -174,9 +175,34 @@ article {
 }
 
 .contact_edit {
-  text-align: right;
   padding: 0px 5px 0px 10px;
   margin-top: 5px;
+}
+
+.contact_privacy {
+  float: left;
+  text-align: right;
+	width: 86px;
+	margin-left: -110px;
+}
+
+.contact_privacy:hover {
+  cursor: pointer;
+}
+
+.privacy_public {
+  background-color: #30C090;
+  padding: 0px 10px 5px 10px;
+}
+
+.privacy_private {
+  background-color: #C04830;
+  padding: 0px 10px 5px 10px;
+}
+
+.privacy_restricted {
+  background-color: #FFFF66;
+  padding: 0px 10px 5px 10px;
 }
 
 .back_button {

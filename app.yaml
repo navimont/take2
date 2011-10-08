@@ -27,3 +27,6 @@ handlers:
   script: take2geo.py
   login: required
 
+- url: /share.*
+  script: take2share.py
+  login: required

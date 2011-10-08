@@ -2,6 +2,7 @@
 
 import settings
 import logging
+from datetime import datetime, timedelta
 from django.utils import simplejson as json
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
@@ -86,9 +87,16 @@ class LocationHandler(webapp.RequestHandler):
         # POSITION_UNAVAILABLE (2)
         # TIMEOUT (3)
         # UNKNOWN_ERROR (0)
+        # firefox supports only (1) in case of a permanent denial
         err = self.request.get("err", None)
 
-        logging.debug("%s %s %s %s" % (lat,lon,user,err))
+        if not err:
+            login_user.location.lat = float(lat)
+            login_user.location.lon = float(lon)
+            login_user.location_timestamp = datetime.now()
+            # ask again in an hour
+            login_user.ask_geolocation = datetime.now() + timedelta(hours=1)
+            login_user.put()
 
         # response is always OK
         self.response.set_status(200)

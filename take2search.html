@@ -1,6 +1,46 @@
 {% extends "take2baseclass.html" %}
 
 {% block content %}
+    <script type="text/javascript">
+      var georequest = new XMLHttpRequest();
+
+      // geolocation.getCurrentPosition error callback
+      function position_error_cb (err) {
+          var user = $("[name='login_user_key']").val();
+          var url = "/location?user="+user+"&err="+err.code;
+          georequest.open("GET", url, true);
+          // we are not interested in any reply
+          georequest.send(null);
+      }
+
+      // geolocation.getCurrentPosition position callback
+      function position_cb (position) {
+          var user = $("[name='login_user_key']").val();
+          var url = "/location?user="+user+"&lat="+position.coords.latitude+"&lon="+position.coords.longitude;
+          georequest.open("GET", url, true);
+          // we are not interested in any reply
+          georequest.send(null);
+      }
+
+      // called on document ready
+      function locate_me() {
+          if (!navigator.geolocation) {
+              return;
+          }
+          // maximumAge in milliseconds
+          navigator.geolocation.getCurrentPosition(position_cb, position_error_cb, {timeout: 10000, maximumAge: 300000});
+      }
+
+      $(document).ready(function() {
+          ask_geolocation = $("[name='geolocation_request']").val()
+          if (ask_geolocation == "True") {
+              locate_me();
+          }
+      });
+     </script>
+
+
+
     {% if signed_in %}
       <!-- Show birthdays for signed in users -->
       {% if birthdays %}
@@ -30,8 +70,11 @@
             <aside class="contact_navigation">
               <ul>
                 {% if contact.can_edit %}
-                  <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">edit</a></li>
-                  <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">share</a></li>
+                  <li><a href="javascript:void(0)" onClick="post_to_url('/editcontact', {'key': '{{contact.key}}'});">edit</a></li>
+                  {% if contact.is_myself %}
+                    <!-- share entry only for myself -->
+                    <li><a href="javascript:void(0)" onClick="post_to_url('/share', {'key': '{{contact.key}}'});">share</a></li>
+                  {% endif %}
                 {% else %}
                   <!-- <li><a href="javascript:void(0)" onClick="post_to_url('editcontact', {'key': '{{contact.key}}'});">connect</a></li> -->
                 {% endif %}

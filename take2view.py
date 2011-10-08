@@ -8,7 +8,7 @@ import os
 import calendar
 from google.appengine.ext import db
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate, ContactIndex, PlainKey
-from take2dbm import Email, Address, Mobile, Web, Other, Country
+from take2dbm import Email, Address, Mobile, Web, Other, Country, SharedTake2
 from take2access import visible_contacts
 
 class Take2Overview(object):
@@ -31,6 +31,10 @@ class Take2View(object):
         self.key = str(obj.key())
         self.class_name = obj.class_name()
         self.attic = obj.attic
+        try:
+            self.privacy = obj.privacy
+        except AttributeError:
+            self.privacy = 'private'
 
 class AffixView(Take2View):
     def __init__(self, obj):
@@ -116,13 +120,15 @@ class ContactView():
             self.address.append_take2(AddressView(obj))
 
 
-def encode_contact(contact, login_user, include_attic=False):
+def encode_contact(contact, login_user, include_attic=False, include_privacy=False):
     """Factory to encode data into view classes which can easily be rendered
 
     The function takes into account the access rights and encodes only elements
     which the user is allowed to see.
     signed_in is set to True if the user is signed in
-    If attic=True, data will include the complete history and also archived data.
+    If include_attic=True, data will include the complete history and also archived data.
+    If include_privacy is set, it will include the privacy setting for contacts
+    this user owns: private, restricted or public
     """
     result = None
     # do only enclose non-attic contacts unless attic parameter is set
@@ -135,58 +141,78 @@ def encode_contact(contact, login_user, include_attic=False):
         if contact.lastname:
             result.lastname = contact.lastname
 
-    if not login_user:
-        # the name is all which anonymous users will see
-        return result
+    if login_user:
+        # Birthday
+        if contact.class_name() == "Person":
+            if contact.birthday.has_year():
+                result.birthyear = contact.birthday.year
+            if contact.birthday.has_month():
+                result.birthmonth = calendar.month_name[contact.birthday.month]
+            if contact.birthday.has_day():
+                result.birthday = contact.birthday.day
 
-    # In order to reveal more data, we must check if 'me' is allowed
-    # to see it.
-    visible = visible_contacts(login_user, include_attic)
-    if not (contact.key() in visible):
-        return result
+        # nickname
+        if contact.nickname:
+            result.nickname = contact.nickname
 
-    # Birthday
-    if contact.class_name() == "Person":
-        if contact.birthday.has_year():
-            result.birthyear = contact.birthday.year
-        if contact.birthday.has_month():
-            result.birthmonth = calendar.month_name[contact.birthday.month]
-        if contact.birthday.has_day():
-            result.birthday = contact.birthday.day
+    # A user can see their own data, obviously
+    if login_user and login_user.key() == contact.owned_by.key():
+        # Relation back to the middleman
+        if contact.back_ref:
+            result.relation = contact.back_rel if contact.back_rel else ""
+            result.middleman = contact.back_ref.name
+            result.middleman_ref = str(contact.back_ref.key())
 
-    # nickname
-    if contact.nickname:
-        result.nickname = contact.nickname
+        # Relation(s) going out from this person towards others
+        result.contacts = []
+        # for con in Contact.all().filter("back_ref =", contact):
+        for con in contact.affix:
+            if not con.attic or include_attic:
+                result.append_take2(con)
 
-    # Relation back to the middleman
-    if contact.back_ref:
-        result.relation = contact.back_rel if contact.back_rel else ""
-        result.middleman = contact.back_ref.name
-        result.middleman_ref = str(contact.back_ref.key())
+        # can I edit the contact data?
+        if login_user:
+            if contact.owned_by.key() == login_user.key():
+                result.can_edit = True
 
-    # Relation(s) going out from this person towards others
-    result.contacts = []
-    # for con in Contact.all().filter("back_ref =", contact):
-    for con in contact.affix:
-        if not con.attic or include_attic:
-            result.append_take2(con)
+        # Is this the contact data for the logged in user (myself)?
+        if login_user and login_user.me:
+            if contact.key() == login_user.me.key():
+                result.is_myself = True
 
-    # can I edit the contact data?
-    if login_user and login_user.me:
-        if contact.owned_by.key() == login_user.key():
-            result.can_edit = True
+        #
+        # encode contact's data
+        #
+        q_obj = Take2.all()
+        q_obj.filter("contact_ref =", contact)
+        q_obj.order('-timestamp')
+        for obj in q_obj:
+            # do only enclose non-attic take2 properties unless attic parameter is set
+            if obj.attic and not include_attic:
+                continue
+            if include_privacy:
+                # look for an entry in the SharedTake2 table
+                priv = SharedTake2.all().filter("contact_ref =", contact).filter("take2_ref =", obj).get()
+                if priv:
+                    if priv.class_name() == "PublicTake2":
+                        # add privacy property to obj on the fly
+                        obj.privacy = 'public'
+                    elif priv.class_name() == "RestrictedTake2":
+                        obj.privacy = 'restricted'
+            result.append_take2(obj)
+    else:
+        # user does not own the contact, but let's check whether the privacy settings
+        # allow us to see something
+        q_priv = SharedTake2.all().filter("contact_ref =", contact)
+        for priv in q_priv:
+            # public objects
+            if priv.class_name() == 'PublicTake2':
+                obj = priv.take2_ref
+                # do only enclose non-attic take2 properties unless attic parameter is set
+                if obj.attic and not include_attic:
+                    continue
+                result.append_take2(obj)
 
-    #
-    # encode contact's data
-    #
-    q_obj = Take2.all()
-    q_obj.filter("contact_ref =", contact)
-    q_obj.order('-timestamp')
-    for obj in q_obj:
-        # do only enclose non-attic take2 properties unless attic parameter is set
-        if obj.attic and not include_attic:
-            continue
-        result.append_take2(obj)
 
     return result
 

@@ -6,6 +6,7 @@
 
           // make attic entries disappear
           $('div.take2_data_attic').hide();
+          // click handler
           $('div.take2_section .take2_header_toggle').click(function(){
               var section = $(this).parents('div.take2_section');
               $("div.take2_data_attic", section).toggle()
