@@ -58,7 +58,7 @@
         <ul>
           <li><a href="{{loginout_url}}">{{loginout_text}}</a></li>
           {% if signed_in %}
-            <li><a href="javascript:void(0)" onClick="post_to_url('/new', {'instance': 'Person,Email,Mobile'})">New contact</a></li>
+            <li><a href="javascript:void(0)" onClick="post_to_url('/new', {'instance': 'Person,Email,Mobile,Address'})">New contact</a></li>
           {% endif %}
         </ul>
       </nav>

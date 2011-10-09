@@ -2,13 +2,30 @@
 
 import settings
 import logging
-from take2dbm import Contact, Person, Take2, FuzzyDate
-from take2dbm import Email, Address, Mobile, Web, Other, Country, OtherTag
-from take2index import check_and_store_key
 import calendar
 from datetime import datetime
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from google.appengine.ext import db
+from take2dbm import Contact, Person, Take2, FuzzyDate
+from take2dbm import Email, Address, Mobile, Web, Other, Country, OtherTag
+from take2index import check_and_store_key
+
+
+def prepareListOfCountries():
+    """prepares a list of countries in a
+    datastructure ready for the template use"""
+    landlist = []
+    for lc in Country.all():
+        landlist.append(lc.country)
+    return landlist
+
+def prepareListOfOtherTags():
+    """prepares a list of previously used tags in a  data structure ready for the template use"""
+    taglist = []
+    for tag in OtherTag.all():
+        taglist.append(tag.tag)
+    return taglist
 
 def prepare_birthday_selectors():
     """Prepare the lists of days and month which are needed to enter a valid birthday"""
@@ -32,7 +49,7 @@ class EntityBean(object):
 
     def get_template_values(self):
         if self.entity:
-            template_values['%s_key' % self.entity.class_name()] = str(self.entity.key())
+            self.template_values['%s_key' % self.entity.class_name()] = str(self.entity.key())
 
     def get_entity(self):
         """Returns the database representation"""
@@ -52,6 +69,18 @@ class PersonBean(ContactBean):
     def new_person(cls, owned_by):
         """factory method for a new person bean"""
         return PersonBean(owned_by,None)
+
+    @classmethod
+    def load(cls, key):
+        entity = Person.get(key)
+        person = PersonBean(entity.owned_by,None)
+        person.entity = entity
+        person.name = entity.name
+        person.nickname = entity.nickname
+        person.lastname = entity.lastname
+        person.birthday = entity.birthday
+        person.introduction = entity.introduction
+        return person
 
     @classmethod
     def edit(cls, owned_by, request):
@@ -103,7 +132,6 @@ class PersonBean(ContactBean):
         self.birthday = FuzzyDate(year=0,month=0,day=0)
 
     def validate(self):
-        # throws ValidationError
         if len(self.name) < 1:
             return ['Invalid name']
         return []
@@ -143,26 +171,35 @@ class PersonBean(ContactBean):
 
 
 class Take2Bean(EntityBean):
-    def __init__(self,owned_by,contact_ref):
-        super(Take2Bean,self).__init__(owned_by)
+    def __init__(self,contact_ref):
         self.contact_ref = contact_ref
+        self.entity = None
+        self.template_values = {}
 
 
 class EmailBean(Take2Bean):
     @classmethod
-    def new(cls,owned_by,contact_ref):
-        return EmailBean(owned_by,contact_ref)
+    def new(cls,contact_ref):
+        return EmailBean(contact_ref)
 
     @classmethod
-    def edit(cls,owned_by,contact_ref,request):
-        email = EmailBean(owned_by,contact_ref)
+    def load(cls, key):
+        entity = Email.get(key)
+        email = EmailBean(entity.contact_ref)
+        email.entity = entity
+        email.email = entity.email
+        return email
+
+    @classmethod
+    def edit(cls,contact_ref,request):
+        email = EmailBean(contact_ref)
         if request.get('Email_key', None):
             email.entity = Email.get(request.get('Email_key'))
         email.email = request.get('email')
         return email
 
-    def __init__(self,owned_by,contact_ref):
-        super(EmailBean,self).__init__(owned_by,contact_ref)
+    def __init__(self,contact_ref):
+        super(EmailBean,self).__init__(contact_ref)
         self.email = ""
 
     def get_template_values(self):
@@ -171,7 +208,6 @@ class EmailBean(Take2Bean):
         return self.template_values
 
     def validate(self):
-        # throws ValidationError
         try:
             validate_email(self.email)
         except ValidationError:
@@ -183,33 +219,38 @@ class EmailBean(Take2Bean):
             self.entity.email = self.email
             self.entity.put()
         except AttributeError:
-            # prepare database object for new person
-            self.entity = Email(owned_by=self.owned_by, contact_ref=self.contact_ref, email=self.email)
+            self.entity = Email(contact_ref=self.contact_ref, email=self.email)
             self.entity.put()
-        # generate search keys for contact
-        check_and_store_key(self.entity)
-
 
 
 class MobileBean(Take2Bean):
     @classmethod
-    def new(cls,owned_by,contact_ref):
-        return MobileBean(owned_by,contact_ref)
+    def new(cls,contact_ref):
+        return MobileBean(contact_ref)
 
     @classmethod
-    def edit(cls,owned_by,contact_ref,request):
-        mobile = MobileBean(owned_by,contact_ref)
-        if request.get('Mobile_key', None):
-            email.entity = Mobile.get(request.get('Mobile_key'))
+    def load(cls, key):
+        entity = Mobile.get(key)
+        mobile = MobileBean(entity.contact_ref)
+        mobile.entity = entity
+        mobile.mobile = entity.mobile
+        return mobile
+
+    @classmethod
+    def edit(cls,contact_ref,request):
+        key = request.get('Mobile_key', None)
+        if key:
+            mobile = cls.load(key)
+        else:
+            mobile = MobileBean(contact_ref)
         mobile.mobile = request.get('mobile')
         return mobile
 
-    def __init__(self,owned_by,contact_ref):
-        super(MobileBean,self).__init__(owned_by,contact_ref)
+    def __init__(self,contact_ref):
+        super(MobileBean,self).__init__(contact_ref)
         self.mobile = ""
 
     def validate(self):
-        # throws ValidationError
         if len(self.mobile) < 3:
             return ['Mobile number too short']
         return []
@@ -222,13 +263,218 @@ class MobileBean(Take2Bean):
     def put(self):
         try:
             self.entity.mobile = self.mobile
-            self.mobile_db.put()
+            self.entity.put()
         except AttributeError:
             # prepare database object for new person
-            self.mobile_db = Mobile(owned_by=self.owned_by, contact_ref=self.contact_ref, mobile=self.mobile)
-            self.mobile_db.put()
-        # generate search keys for contact
-        check_and_store_key(self.mobile_db)
+            self.entity = Mobile(contact_ref=self.contact_ref, mobile=self.mobile)
+            self.entity.put()
+
+
+class WebBean(Take2Bean):
+    @classmethod
+    def new(cls,contact_ref):
+        return WebBean(contact_ref)
+
+    @classmethod
+    def load(cls, key):
+        entity = Web.get(key)
+        web = WebBean(entity.contact_ref)
+        web.entity = entity
+        web.web = entity.web
+        return web
+
+    @classmethod
+    def edit(cls,contact_ref,request):
+        key = request.get('Web_key', None)
+        if key:
+            web = cls.load(key)
+        else:
+            web = WebBean(contact_ref)
+        web.web = request.get('web')
+        return web
+
+    def __init__(self,contact_ref):
+        super(WebBean,self).__init__(contact_ref)
+        self.web = ""
+
+    def validate(self):
+        try:
+            validate_url(self.web)
+        except ValidationError:
+            return ['Invalid web address']
+        return []
+
+    def get_template_values(self):
+        super(WebBean,self).get_template_values()
+        self.template_values['web'] = self.web
+        return self.template_values
+
+    def put(self):
+        try:
+            self.entity.web = self.web
+            self.entity.put()
+        except AttributeError:
+            # prepare database object for new person
+            self.entity = Web(contact_ref=self.contact_ref, web=self.web)
+            self.entity.put()
+
+
+class OtherBean(Take2Bean):
+    @classmethod
+    def new(cls,contact_ref):
+        return OtherBean(contact_ref)
+
+    @classmethod
+    def load(cls, key):
+        entity = Other.get(key)
+        other = OtherBean(entity.contact_ref)
+        other.entity = entity
+        other.text = entity.text
+        if entity.tag:
+            other.tag = entity.tag.tag
+        return other
+
+    @classmethod
+    def edit(cls,contact_ref,request):
+        key = request.get('Other_key', None)
+        if key:
+            other = cls.load(key)
+        else:
+            other = OtherBean(contact_ref)
+        other.text = request.get('text')
+        other.tag = request.get('tag')
+        return other
+
+    def __init__(self,contact_ref):
+        super(OtherBean,self).__init__(contact_ref)
+        self.text = ""
+        self.tag = ""
+
+    def validate(self):
+        return []
+
+    def get_template_values(self):
+        super(OtherBean,self).get_template_values()
+        self.template_values['text'] = self.text
+        self.template_values['tag'] = self.tag
+        return self.template_values
+
+    def put(self):
+        if len(self.tag) > 0:
+            tag = OtherTag.all().filter("tag =", self.tag).get()
+            # If tag name is not in DB it is added
+            if not tag:
+                tag = OtherTag(tag=self.tag)
+                tag.put()
+        else:
+            tag = None
+        try:
+            self.entity.tag = tag
+            self.entity.text = self.text
+            self.entity.put()
+        except AttributeError:
+            # prepare database object for new person
+            self.entity = Other(contact_ref=self.contact_ref, text=self.text, tag=tag)
+            self.entity.put()
+
+
+class AddressBean(Take2Bean):
+    @classmethod
+    def new(cls,contact_ref):
+        return AddressBean(contact_ref)
+
+    @classmethod
+    def load(cls, key):
+        entity = Address.get(key)
+        address = AddressBean(entity.contact_ref)
+        address.entity = entity
+        # properties follow
+        address.adr = entity.adr
+        if entity.country:
+            address.country = entity.country.country
+        address.landline_phone = entity.landline_phone
+        address.location_lock = entity.location_lock
+        address.lon = entity.location.lon
+        address.lat = entity.location.lat
+        address.map_zoom = entity.map_zoom
+        address.adr_zoom = entity.adr_zoom
+        return address
+
+    @classmethod
+    def edit(cls,contact_ref,request):
+        key = request.get('Address_key', None)
+        if key:
+            address = cls.load(key)
+        else:
+            address = AddressBean(contact_ref)
+        # properties follow
+        address.adr = request.get('adr', "").split("\n")
+        address.country = request.get('country', "")
+        address.landline_phone = request.get('landline_phone', "")
+        address.location_lock = True if request.get('location_lock', None) else False
+        lat_raw = request.get("lat", "")
+        address.lat = 0.0 if len(lat_raw) == 0 else float(lat_raw)
+        lon_raw = request.get("lon", "")
+        address.lon = 0.0 if len(lon_raw) == 0 else float(lon_raw)
+        address.map_zoom = int(request.get('map_zoom', "8"))
+        address.adr_zoom = [line.strip() for line in request.get("adr_zoom", "").split(",")]
+        return address
+
+    def __init__(self,contact_ref):
+        super(AddressBean,self).__init__(contact_ref)
+        # properties follow
+        self.adr = []
+        self.country = ""
+        self.landline_phone = ""
+        self.location_lock = False
+        self.lon = 0.0
+        self.lat = 0.0
+        self.map_zoom = 8
+        self.adr_zoom = ""
+
+    def validate(self):
+        return []
+
+    def get_template_values(self):
+        super(AddressBean,self).get_template_values()
+        # properties follow
+        self.template_values['adr'] = "\n".join(self.adr)
+        self.template_values['country'] = self.country
+        self.template_values['landline_phone'] = self.landline_phone
+        self.template_values['lat'] = self.lat
+        self.template_values['lon'] = self.lon
+        self.template_values['location_lock'] = self.location_lock
+        self.template_values['map_zoom'] = str(self.map_zoom)
+        if self.adr_zoom and len(self.adr_zoom) > 0:
+            self.template_values['adr_zoom'] = ", ".join(self.adr_zoom)
+        self.template_values['landlist'] = prepareListOfCountries()
+        return self.template_values
+
+    def put(self):
+        if len(self.country) > 0:
+            country = Country.all().filter("country =", self.country).get()
+            # If country name is not in DB it is added
+            if not country:
+                country = Country(country=self.country)
+                country.put()
+        else:
+            country = None
+        try:
+            self.entity.adr = self.adr
+            self.entity.country = country
+            self.entity.landline_phone = self.landline_phone
+            self.entity.location = location=db.GeoPt(lon=self.lon, lat=self.lat)
+            self.entity.location_lock = self.location_lock
+            self.entity.map_zoom = self.map_zoom
+            self.entity.adr_zoom = self.adr_zoom
+            self.entity.put()
+        except AttributeError:
+            # prepare database object for new person
+            self.entity = Address(contact_ref=self.contact_ref, adr=self.adr,
+                                  country=country, landline_phone=self.landline_phone,
+                                  location=db.GeoPt(lon=self.lon, lat=self.lat), location_lock=self.location_lock,
+                                  map_zoom=self.map_zoom, adr_zoom=self.adr_zoom)
+            self.entity.put()
 
 
 def main():

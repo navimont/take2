@@ -152,7 +152,6 @@ article {
   margin-top: 12px;
   min-height: 80px;
   padding-left: 10px;
-  padding-right: 10px;
   background-color: #64D8B1;
 }
 
@@ -244,13 +243,16 @@ header a:link, header a:hover, header a:visited {
   float: left;
 }
 
-#new_person .button {
+#contact_form .button {
   float: right;
   background-color: #30C090;
   padding: 10px;
 }
 
-#new_person .hint {
+#map_canvas {
+    height: 320px;
+    width: 650px;
+    border: 1px solid black;
 }
 
 /*		Tablet Layout: 768px.
@@ -331,6 +333,10 @@ px      68    160    252    344    436    */
 .click_icon {
     width: 30px;
     height: 30px;
+}
+
+.vertical-space {
+  height: 10px;
 }
 
 hr {

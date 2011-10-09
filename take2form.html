@@ -6,20 +6,55 @@ Address-Information
 
 {% block content %}
     <script type="text/javascript">
-        var georequest = new XMLHttpRequest();
+        var map;
+        var geocoder;
+        var marker;
+
+        function geocoder_cb(results, status) {
+            if (status == google.maps.GeocoderStatus.OK) {
+              document.getElementById("map_lookup_button").style.backgroundColor = "#30C090";
+              // center the map
+              map.setCenter(results[0].geometry.location);
+              // and set to the right bounds
+              map.fitBounds(results[0].geometry.viewport);
+              // (re)position marker
+              marker.setMap(map);
+              marker.setPosition(results[0].geometry.location);
+              // only update coordinates if not locked
+              var lock = document.getElementById("location_lock").checked;
+              if (!lock) {
+                  document.getElementById('lat').value = Math.round(results[0].geometry.location.lat()*100000)/100000;
+                  document.getElementById('lon').value = Math.round(results[0].geometry.location.lng()*100000)/100000;
+                  // remember zoom level at current viewport
+                  document.getElementById('map_zoom').value = map.getZoom();
+                  // get data for administrative zoom: country, state, region, town
+                  var adr_zoom = "";
+                  for (var ix in results[0].address_components) {
+                      var admin = results[0].address_components[ix];
+                      if (admin.types.indexOf("country") != -1
+                          || admin.types.indexOf("neighborhood") != -1
+                          || admin.types.indexOf("administrative_area_level_1") != -1
+                          || admin.types.indexOf("sublocality") != -1
+                          || admin.types.indexOf("locality") != -1 ) {
+                          adr_zoom = adr_zoom+admin.long_name+", ";
+                      }
+                  }
+                  // remove last comma
+                  adr_zoom = adr_zoom.replace(/,\s+$/,"")
+                  document.getElementById('adr_zoom').innerHTML = adr_zoom;
+              }
+            } else {
+              // in case of error make the button orange
+              document.getElementById("map_lookup_button").style.backgroundColor = "#CC9900";
+            }
+        }
 
         function getlatlon() {
             var adr = document.getElementById("adr_text").value;
             // replace newlines by " "
-            adr = adr.replace("\n"," ")
+            adr = adr.replace(/\n/g," ")
             var country = document.getElementById("country_text").value;
-            // loadMapScript ->> initializeMap
-            loadMapScript();
-            // send geo lookup to google
-            var url="http://maps.googleapis.com/maps/api/geocode/json?address="+adr+"+"+country+"&sensor=false";
-            georequest.open("GET", url, true);
-            georequest.onreadystatechange = checkReply;
-            georequest.send(null);
+            geocoder.geocode( { 'address': adr+" "+country }, geocoder_cb);
         }
 
         function loadMapScript() {
@@ -35,41 +70,43 @@ Address-Information
 
         /* initialize map */
         function initializeMap() {
-            var myLatlng = new google.maps.LatLng(-34.397, 150.644);
+            geocoder = new google.maps.Geocoder();
+            marker = new google.maps.Marker();
+            // geocode the current coordinates (if present)
+            var lat = parseFloat(document.getElementById('lat').value);
+            var lon = parseFloat(document.getElementById('lon').value);
+            var zoom = parseInt(document.getElementById('map_zoom').value,10);
+            var adr = document.getElementById("adr_text").value;
+            if ( isNaN(lat) || isNaN(lon) || isNaN(zoom) ) {
+                // default New York (if everything else fails)
+                lat = 40.4;
+                lon = 73.0;
+                zoom = 8;
+            } else {
+
+            }
+            var myLatlng = new google.maps.LatLng(lat, lon);
             var myOptions = {
-              zoom: 8,
+              zoom: zoom,
               center: myLatlng,
               mapTypeId: google.maps.MapTypeId.ROADMAP
             }
-            var map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
-        }
-
-        function checkReply() {
-            if (georequest.readyState == 4) {
-                if (georequest.status == 200) {
-                    var reply = georequest.responseText;
-                    var error = "";
-                    var geolatlon = {};
-                    try {
-                        geolatlon = JSON.parse(reply);
-                    } catch (e) {
-                        error = e;
-                    }
-                    if ( 'lat' in geolatlon ) {
-                        document.getElementById('lat').value = geolatlon["lat"];
-                        document.getElementById('lon').value = geolatlon["lon"];
-                        var adr_zoom = geolatlon["adr_zoom"];
-                        document.getElementById('adr_zoom').value = adr_zoom;
-                        // formatting efforts
-                        document.getElementById('adr_zoom_field').innerHTML = adr_zoom;
-                    }
-                } else {
-                }
+            map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+            // if no position was in the data make a lookup with the address
+            if ( isNaN(lat) || isNaN(lon) || isNaN(zoom) ) {
+                getlatlon();
+            } else {
+                // set marker
+                marker.setMap(map);
+                marker.setPosition(myLatlng);
             }
         }
 
         $(document).ready(function() {
             prepareCountryAutocomplete();
+            prepareOtherAutocomplete();
+            // display map and set it to a reasonable positions
+            loadMapScript();
         });
 
         /*
@@ -79,15 +116,26 @@ Address-Information
             $("input#country_text").autocomplete( {
                 source: [
                     {% for land in landlist %}
-                      "{{land.country}}",
+                      "{{land}}",
                     {% endfor %}
                 ]
-                });
+            });
+        }
+
+        function prepareCountryAutocomplete() {
+            // auto-complete for search box
+            $("input#what_autocompl").autocomplete( {
+                source: [
+                      {% for tag in taglist %}
+                          "{{tag}}",
+                      {% endfor %}
+                ]
+            });
         }
     </script>
 
     <header>
-      <h1>{{titlestr}}: {{name}}</h1>
+      <h2>{{titlestr}}</h2>
     </header>
 
     {% for error in errors %}
@@ -96,6 +144,7 @@ Address-Information
 
     <form name="save" action="/save" method="POST">
         <input name="instance" type="hidden" value="{{ instance }}">
+        <input name="contact_ref" type="hidden" value="{{ contact_ref }}">
 
         <input class="button" type="submit" value="Save"/>
         <input type="reset" value="Cancel" onClick="window.history.back()">
@@ -148,22 +197,29 @@ Address-Information
               <hr>
               <div class="">
                 <input name="Email_key" type="hidden" value="{{ Email_key }}">
-                <label for="email">Email</label>
+                <label for="email">Email:</label>
                 <input name="email" type="email" value="{{email}}">
               </div>
           {% endif %}
           {% if 'Mobile' in instance_list %}
               <div class="">
                 <input name="Mobile_key" type="hidden" value="{{ Mobile_key }}">
-                <label for="mobile">Mobile phone</label>
+                <label for="mobile">Mobile phone:</label>
                 <input name="mobile" type="tel" value="{{mobile}}">
+              </div>
+          {% endif %}
+          {% if 'Web' in instance_list %}
+              <div class="">
+                <input name="Web_key" type="hidden" value="{{ Web_key }}">
+                <label for="web">Web site:</label>
+                <input name="web" type="url" value="{{web}}">
               </div>
           {% endif %}
           {% if 'Address' in instance_list %}
               <input name="Address_key" type="hidden" value="{{ Address_key }}">
               <hr>
               <aside>
-                <a class="button" href="javascript:void(0)" onClick="getlatlon();">Show on map</a>
+                <a id="map_lookup_button" class="button" href="javascript:void(0)" onClick="getlatlon();">Show on map</a>
               </aside>
               <div class="">
                 <label for="adr">Address:</label>
@@ -171,24 +227,43 @@ Address-Information
               </div>
               <div class="">
                 <label for="country">Country</label>
-                <input id="country_text" type="text" name="country" value="">
+                <input id="country_text" type="text" name="country" value="{{country}}">
               </div>
               <div class="">
                 <label for="landline_phone">Landline phone:</label>
                 <input type="text" name="landline_phone" value="{{landline_phone}}" size="20">
-                <div id="adr_zoom_field">
-                  {{adr_zoom}}&nbsp;
-                </div>
-                <div id="coordinates_field">
-                  {{adr_coordinates}}&nbsp;
-                </div>
+              </div>
+              <div class="">
+                <label for="lat">Latitude:</label>
+                <input id="lat" type="text" name="lat" value="{{lat}}" size="5">
+                <label for="lon">Longitude:</label>
+                <input id='lon' type="text" name="lon" value="{{lon}}" size="5">
+                <input id='map_zoom' type="hidden" name="map_zoom" value="{{map_zoom}}">
+                <label for="location_loc">Lock:</label>
+                <input id="location_lock" type="checkbox" name="location_lock" value="location_lock" {% if location_lock %} checked="checked" {% endif %}>
+                <span class="small"><em>Show on map</em> will not update coordinates if selected.</span>
+              </div>
+              <div>
+                  <small><span id="adr_zoom">{{adr_zoom}}</span></small>&nbsp;
+              </div>
+              <!-- displays map for address lookup -->
+              <div id="map_canvas">
+              </div>
+              <div class="vertical-space"></div>
+          {% endif %}
+          {% if 'Other' in instance_list %}
+              <div class="">
+                <input name="Other_key" type="hidden" value="{{ Other_key }}">
+                <label for="what">Type:</label>
+                <input id="what_autocompl" type="text" name="what" value="{{tag}}">
+                <label for="text">Info:</label>
+                <input name="text" type="text" value="{{text}}">
               </div>
           {% endif %}
         </article>
-        <div id="map_canvas" style="height: 320px; width: 672px;">
-            <!-- displays map for address lookup -->
-        </div>
 
     </form>
-
+    <footer>
+      <div style="height: 32px; width: 672px;"></div>
+    </footer>
 {% endblock %}

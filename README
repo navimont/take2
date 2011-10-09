@@ -1,21 +1,37 @@
 A linked address database
+=========================
 
-Take2 - Address-Datenbank
+see: http://www.weschnitz.com
 
-*** New Features
 
-* stelle emails grafisch dar to avoid spam
-* internationalization http://blog.yjl.im/2009/02/using-django-i18n-in-google-app-engine.html
-* User Avatars
-* Weblinks blenden das Icon der Seite ein
-* Gmail oeffnen wenn auf email adresse geklickt wird
-* PDF Adress-Liste export
-* take photos with webcam
-* vcard import (or ideally, by forwarding vcard emails to weschnitz)
-* ldap interface for mail addresses
-* special layout for smartphones
-* Unsubscribe
-* Export data for christmas card lists or other meetups
+*** Implemented features
+
+- login with OpenId
+- multi-user enabled
+- multiple addresses, emails etc. per contact
+- as a logged in user you can make public your own address but not the other
+  entries in your address book
+- Lookup coordinates and show address on a map display
+
+*** Future Features
+
+(+++) difficult
+(++)  doable
+
+* (+)   welcome page with a large map and all your contacts displayed
+* (++)  special layout for smartphones
+* (+++) advanced sharing: Invite other users to see your address
+* (++)  adress list PDF export
+* (++)  Import address data from Excel (csv)
+* (+++) internationalization http://blog.yjl.im/2009/02/using-django-i18n-in-google-app-engine.html
+* (+)   User Avatars to depict users
+* (+)   show a sites icon together with the web link
+*       open gmail when an email address is clicked
+* (++)  take photos with webcam and include the pictures with a contact
+* (+)   vcard import (or ideally, by forwarding vcard emails to weschnitz)
+* (++)  ldap interface for mail addresses
+* (+)   Unsubscribe
+* (++)  Export data for christmas card lists or other meetups
 
 *** Development process
 

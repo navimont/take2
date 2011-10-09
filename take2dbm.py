@@ -159,11 +159,13 @@ class Address(Take2):
     """Point of interest as was loaded from the OSM database"""
     # Coordinates for this Address
     location = db.GeoPtProperty()
+    # an appropriate zoom level to view the address on a map
+    map_zoom = db.IntegerProperty()
     # set to true if coordinates shall not be overwritten by geocoding lookup
     location_lock = db.BooleanProperty(default=False)
     # Address
     adr = db.StringListProperty(required=True)
-    landline_phone = db.PhoneNumberProperty(required=False)
+    landline_phone = db.StringProperty(required=False)
     country = db.ReferenceProperty(Country)
     # those are filled by the address lookup (geocoding)
     # and contain items like: [earth,USA,NY,Brooklyn,Fort Greene]
