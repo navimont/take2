@@ -13,9 +13,6 @@ LOG_LEVEL=logging.INFO
 if DEBUG:
     LOG_LEVEL=logging.DEBUG
 
-# turn to this URI to use the google geocoding service
-GOOGLE_GEOCODING_URI = "http://maps.googleapis.com/maps/api/geocode/json"
-
 # possible choices for field other
 OTHER_TAGS = ['Banc account','username/login']
 

@@ -10,7 +10,7 @@ from take2dbm import Person, Contact, LoginUser, FuzzyDate
 from google.appengine.api import memcache
 from google.appengine.api import users
 from take2index import check_and_store_key
-from take2misc import prepare_birthday_selectors
+from take2beans import prepare_birthday_selectors
 
 def write_access(obj, login_user):
     """Makes sure that me can edit the object

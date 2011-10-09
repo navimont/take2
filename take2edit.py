@@ -7,19 +7,19 @@ import calendar
 from datetime import datetime, timedelta
 import yaml
 from django.utils import simplejson as json
+from django.core.exceptions import ValidationError
 from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.ext import webapp
 from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
-from take2dbm import Contact, Person, Company, Take2, FuzzyDate
+from take2dbm import Contact, Person, Take2, FuzzyDate
 from take2dbm import Email, Address, Mobile, Web, Other, Country, OtherTag
 from take2access import MembershipRequired, write_access, visible_contacts
 from take2view import encode_contact
-from take2geo import geocode_lookup
 from take2index import check_and_store_key
-from take2misc import prepare_birthday_selectors
+from take2beans import PersonBean, EmailBean, MobileBean, prepare_birthday_selectors
 
 class ContactEdit(webapp.RequestHandler):
     """present a contact including old data (attic) for editing"""
@@ -46,144 +46,80 @@ class ContactEdit(webapp.RequestHandler):
 
 
 
-class PersonSave(webapp.RequestHandler):
-    """Update/Save contact"""
+class Save(webapp.RequestHandler):
+    """Save Contact or Take2 entity
+
+    This request handler is as the form action called after take2form.html was displayed.
+    It checks and saves all data which was displayed in the form. An input value 'instance'
+    contains a list of comma separated instance names of the data classes which were
+    visible in the form. E.g. "Person,Email,Address"
+
+    If data was new (not loaded from the database) there are no <Class_name>_key
+    """
 
     @MembershipRequired
     def post(self, login_user=None, template_values={}):
-        person_key = self.request.get("key", "")
-        action = self.request.get("action", "")
+        instance = self.request.get("instance", "")
+        logging.debug(instance)
+        instance_list = instance.split(",")
+        logging.debug(instance_list)
+        contact_ref = self.request.get("contact_ref", None)
 
-        assert action in ['new','edit'], "Undefined action: %s" % (action)
-
-        if action == 'edit':
-            person = Contact.get(person_key)
-            instance = person.class_name().lower()
+        # contact_ref points to the person to which the take2 entries in this form
+        # belong to.
+        # The only case that it won't exist in the input form is if a new contact
+        # (Person) is saved.
+        contact = None
+        if contact_ref:
+            contact = Take2.get(key).contact_ref
             # access rights check
-            if not write_access (person, login_user):
+            if not write_access (contact, login_user):
                 self.error(500)
                 return
+            template_values['titlestr'] = "Address book entry for %s %s" % (contact.name, contact.lastname)
         else:
-            person = None
+            # otherwise for the login_user
+            template_values['titlestr'] = "New address book entry for %s %s" % (login_user.me.name, login_user.me.lastname)
 
-        #
-        # update database
-        #
-        try:
-            if action == 'new':
-                person = Person(name=self.request.get("firstname", ""),
-                                lastname=self.request.get("lastname", ""))
-                person.owned_by = login_user
+        template_values['errors'] = []
+        if 'Person' in instance_list:
+            person = PersonBean.edit(login_user,self.request)
+            template_values.update(person.get_template_values())
+            err = person.validate()
+            if not err:
+                person.put()
+                if not contact:
+                    contact = person.get_entity()
             else:
-                person.name = self.request.get("firstname", "")
-                person.lastname = lastname=self.request.get("lastname", "")
-            try:
-                birthday = int(self.request.get("birthday", None))
-            except ValueError:
-                birthday = 0
-            except TypeError:
-                birthday = 0
-            try:
-                birthmonth = int(self.request.get("birthmonth", None))
-            except ValueError:
-                birthmonth = 0
-            except TypeError:
-                birthmonth = 0
-            try:
-                birthyear = int(self.request.get("birthyear", None))
-            except ValueError:
-                birthyear = 0
-            except TypeError:
-                birthyear = 0
-            person.birthday = FuzzyDate(day=birthday,month=birthmonth,year=birthyear)
-            back_ref = self.request.get("back_ref", None)
-            if back_ref:
-                person.back_ref = Key(back_ref)
-                person.back_rel = self.request.get("back_rel", "")
-            person.put()
-            # generate search keys for new contact
-            check_and_store_key(person)
-        except db.BadValueError:
-            template_values['errors'] = ["Invalid data"]
-        except ValueError:
-            template_values['errors'] = ["Value error"]
-        if 'errors' in template_values:
-            for arg in self.request.arguments():
-                template_values[arg] = self.request.get(arg)
-            path = os.path.join(os.path.dirname(__file__), self.request.get("form_file"))
+                template_values['errors'].extend(err)
+
+        # go through all take2 types
+        for (bean_name,bean_class) in (('Email',EmailBean),('Mobile',MobileBean)):
+            if bean_name in instance_list:
+                obj = bean_class.edit(login_user, contact, self.request)
+                template_values.update(obj.get_template_values())
+                err = obj.validate()
+                if not err:
+                    obj.put()
+                else:
+                    # If object is new, not edited, we can safely ignore this
+                    # We know that it's new if there is no <Class>_key entry in the request
+                    if self.request.get('%s_key' % bean_name, None):
+                        template_values['errors'].extend(err)
+
+
+        # if errors happened, re-display the form
+        if template_values['errors']:
+            template_values['instance_list'] = instance_list
+            template_values['instance'] = instance
+            path = os.path.join(os.path.dirname(__file__), 'take2form.html')
             self.response.out.write(template.render(path, template_values))
             return
 
-        # update visibility list
-        visible_contacts(login_user, refresh=True)
 
-        self.redirect('/editcontact?key=%s' % str(person.key()))
+        self.redirect('/editcontact?key=%s' % str(contact.key()))
 
 
-class CompanyNew(webapp.RequestHandler):
-    """Edit existing company or add a new one"""
-
-    @MembershipRequired
-    def post(self, login_user=None, template_values={}):
-        action,company_key = self.request.get("action", "").split("_")
-        assert action in ['edit','attic','deattic'], "Undefined action: %s" % (action)
-
-        # define the html form fields for this object
-        link = None
-        titlestr = "New Institution data"
-
-        form_file = 'take2form_company.html'
-        template_values['linklist'] = prepareListOfRelations(settings.INSTITUTION_RELATIONS,link)
-        template_values['form_file'] = form_file
-        template_values['titlestr'] = titlestr
-        template_values['instance'] = 'company'
-        template_values['action'] = action
-        template_values['key'] = company_key
-
-        path = os.path.join(os.path.dirname(__file__), form_file)
-        self.response.out.write(template.render(path, template_values))
-
-class CompanySave(webapp.RequestHandler):
-    """Update/Save contact"""
-
-    @MembershipRequired
-    def post(self, login_user=None, template_values={}):
-        company_key = self.request.get("key", "")
-        action = self.request.get("action", "")
-
-        assert action in ['new','edit'], "Undefined action: %s" % (action)
-
-        if action == 'edit':
-            company = Company.get(company_key)
-
-        #
-        # update database
-        #
-        try:
-            if action == 'new':
-                company = Company(name=self.request.get("company_name", ""))
-                company.owned_by = me
-                company.put()
-            else:
-                company = Company.get(company_key)
-                company.name = name=self.request.get("company_name", "")
-                company.put()
-        except db.BadValueError:
-            template_values['errors'] = ["BadValueError"]
-        except ValueError:
-            template_values['errors'] = ["ValueError"]
-        if 'errors' in template_values:
-            template_values['linklist'] = prepareListOfRelations(settings.INSTITUTION_RELATIONS,link)
-            for arg in self.request.arguments():
-                template_values[arg] = self.request.get(arg)
-            path = os.path.join(os.path.dirname(__file__), self.request.get("form_file"))
-            self.response.out.write(template.render(path, template_values))
-            return
-
-        # update visibility list
-        visible_contacts(login_user, refresh=True)
-
-        self.redirect('/editcontact?key=%s' % str(company.key()))
 
 def prepareListOfCountries(selected=None):
     """prepares a list of countries in a
@@ -341,137 +277,48 @@ def KeyRequired(target):
 class New(webapp.RequestHandler):
     """New property or contact"""
 
-    def new_person(self, login_user=None, template_values={}):
-        back_ref_key = self.request.get("key", None)
-
-        if back_ref_key:
-            # this is the person the new contact relates to (not necessarily the logged in user - me)
-            back_ref = Person.get(back_ref_key)
-            template_values['back_ref'] = back_ref_key
-            template_values['back_ref_name'] = back_ref.name
-            template_values['titlestr'] = "New contact for %s %s" % (back_ref.name, back_ref.lastname)
-        else:
-            template_values['titlestr'] = "New contact for %s %s" % (login_user.me.name, login_user.me.lastname)
-
-        # all this stuff has to be in the form to have it ready if the
-        # form has to be re-displayed after field error check (in PersonSave)
-        template_values['form_file'] = 'take2form_person.html'
-        template_values['instance'] = 'person'
-        template_values['action'] = 'new'
-        template_values.update(prepare_birthday_selectors())
-
-        path = os.path.join(os.path.dirname(__file__), template_values['form_file'])
-        self.response.out.write(template.render(path, template_values))
-
-    def new_take2(self, login_user=None, template_values={}):
-        """new take2 objects are this is handled by the edit handler"""
-
-        uri = "/edit?action=new&instance=%s&key=%s" % (self.request.get("instance", ""),self.request.get("key", ""))
-        self.redirect(uri)
-
-
     @MembershipRequired
     def get(self, login_user=None, template_values={}):
-        instance = self.request.get("instance", Key(self.request.get("key")).kind())
-        if instance == 'Person':
-            New.new_person(self,login_user,template_values)
-        elif instance == 'Company':
-            New.new_person(self,login_user,template_values)
-        elif instance == 'Contact':
-            New.new_person(self,login_user,template_values)
+        instance = self.request.get("instance", "")
+        logging.debug(instance)
+        instance_list = instance.split(",")
+        logging.debug(instance_list)
+        # take2 key
+        key = self.request.get("key", None)
+
+        if 'Person' in instance_list:
+            # the presence of the key indicates that the new person shall be
+            # created with reference (middleman_ref) to key.
+            if key:
+                person = PersonBean.new_person_via_middleman(login_user,middleman_ref=key)
+            else:
+                person = PersonBean.new_person(login_user)
+            template_values.update(person.get_template_values())
+        # go through all take2 types
+        for (bean_name,bean_class) in (('Email',EmailBean),('Mobile',MobileBean)):
+            if bean_name in instance_list:
+                obj = bean_class.new(login_user)
+                template_values.update(obj.get_template_values())
+
+        if key:
+            # if person_key is specified, the new entry is for this person
+            contact = Person.get(key)
+            template_values['titlestr'] = "New address book entry for %s %s" % (contact.name, contact.lastname)
         else:
-            New.new_take2(self,login_user,template_values)
+            # otherwise for the login_user
+            template_values['titlestr'] = "New address book entry for %s %s" % (login_user.me.name, login_user.me.lastname)
+
+        # instances as list and as concatenated string
+        logging.debug(instance_list)
+        template_values['instance_list'] = instance_list
+        template_values['instance'] = instance
+
+        path = os.path.join(os.path.dirname(__file__), 'take2form.html')
+        self.response.out.write(template.render(path, template_values))
 
 
 class Edit(webapp.RequestHandler):
     """Edit property or contact"""
-
-    def edit_company(self, login_user=None, template_values={}):
-        action,company_key = self.request.get("action", "").split("_")
-        assert action in ['edit','attic','deattic'], "Undefined action: %s" % (action)
-
-        company = Company.get(company_key)
-        template_values['company_name'] = company.name
-
-        if action != 'edit':
-            if action == 'attic':
-                company.attic = True
-            else:
-                company.attic = False
-            company.put()
-            self.redirect('/editcontact?key=%s' % str(company.key()))
-
-        # define the html form fields for this object
-        link = None
-        if action == 'edit':
-            titlestr = "Edit Institution data"
-            template_values['name'] = company.name
-            # find relation to this company
-            q_link = Link.all()
-            q_link.filter("contact_ref =", me)
-            q_link.filter("link_to =", company)
-            link = q_link.fetch(1)
-            if len(link):
-                link = link[0]
-                template_values['link'] = link.link
-        else:
-            titlestr = "New Institution data"
-
-        form_file = 'take2form_company.html'
-        template_values['linklist'] = prepareListOfRelations(settings.INSTITUTION_RELATIONS,link)
-        template_values['form_file'] = form_file
-        template_values['titlestr'] = titlestr
-        template_values['instance'] = 'company'
-        template_values['action'] = action
-        template_values['key'] = company_key
-
-        path = os.path.join(os.path.dirname(__file__), form_file)
-        self.response.out.write(template.render(path, template_values))
-
-
-    def edit_person(self, login_user=None, template_values={}):
-        person_key = self.request.get("key", "")
-
-        # this is the person we edit
-        person = Person.get(person_key)
-
-        # access rights check
-        if not write_access(person,login_user):
-            self.error(500)
-            return
-
-        template_values['link'] = None
-
-        # define the html form fields for this object
-        template_values['name'] = "%s %s" % (person.name,person.lastname)
-        template_values['firstname'] = person.name
-        if person.nickname:
-            template_values['nickname'] = person.nickname
-        if person.lastname:
-            template_values['lastname'] = person.lastname
-        template_values.update(prepare_birthday_selectors())
-        template_values['birthday'] = str(person.birthday.get_day())
-        template_values['birthmonth'] = str(person.birthday.get_month())
-        template_values['birthyear'] = str(person.birthday.get_year())
-        if person.back_ref:
-            template_values['back_ref'] = str(person.back_ref.key())
-            template_values['back_ref_name'] = person.back_ref.name
-            titlestr = "Edit personal contact for %s %s" % (person.back_ref.name, person.back_ref.lastname)
-        else:
-            titlestr = "Edit Person data"
-        if person.back_rel:
-            template_values['back_rel'] = person.back_rel
-
-        template_values['form_file'] = 'take2form_person.html'
-        template_values['titlestr'] = titlestr
-        template_values['instance'] = 'person'
-        template_values['action'] = 'edit'
-        template_values['key'] = person_key
-
-        logging.debug(template_values)
-        path = os.path.join(os.path.dirname(__file__), template_values['form_file'])
-        self.response.out.write(template.render(path, template_values))
-
 
     def edit_take2(self, login_user=None, template_values={}):
         """Function is called to update a take2 object through a form
@@ -568,15 +415,49 @@ class Edit(webapp.RequestHandler):
     @KeyRequired
     @MembershipRequired
     def get(self, login_user=None, template_values={}):
-        instance = self.request.get("instance", Key(self.request.get("key")).kind())
-        if instance == 'Person':
-            Edit.edit_person(self,login_user,template_values)
-        elif instance == 'Company':
-            Edit.edit_person(self,login_user,template_values)
-        elif instance == 'Contact':
-            Edit.edit_person(self,login_user,template_values)
+        person_key = self.request.get("key", None)
+        if not person_key:
+            self.error(500)
+            return
+
+        # this is the person we edit
+        person = Person.get(person_key)
+
+        # access rights check
+        if not write_access(person,login_user):
+            self.error(500)
+            return
+
+
+        # define the html form fields for this object
+        template_values['name'] = "%s %s" % (person.name,person.lastname)
+        template_values['firstname'] = person.name
+        if person.nickname:
+            template_values['nickname'] = person.nickname
+        if person.lastname:
+            template_values['lastname'] = person.lastname
+        template_values.update(prepare_birthday_selectors())
+        template_values['birthday'] = str(person.birthday.get_day())
+        template_values['birthmonth'] = str(person.birthday.get_month())
+        template_values['birthyear'] = str(person.birthday.get_year())
+        if person.middleman_ref:
+            template_values['middleman_ref'] = str(person.middleman_ref.key())
+            template_values['middleman_ref_name'] = person.middleman_ref.name
+            titlestr = "Edit personal contact for %s %s" % (person.middleman_ref.name, person.middleman_ref.lastname)
         else:
-            Edit.edit_take2(self,login_user,template_values)
+            titlestr = "Edit Person data"
+        if person.introduction:
+            template_values['introduction'] = person.introduction
+
+        template_values['form_file'] = 'take2form_person.html'
+        template_values['titlestr'] = titlestr
+        template_values['instance'] = 'person'
+        template_values['action'] = 'edit'
+        template_values['key'] = person_key
+
+        logging.debug(template_values)
+        path = os.path.join(os.path.dirname(__file__), template_values['form_file'])
+        self.response.out.write(template.render(path, template_values))
 
 
 class Attic(webapp.RequestHandler):
@@ -598,8 +479,8 @@ class Attic(webapp.RequestHandler):
         contact.put();
 
         # if the contact had a backwards refrence, direkt to the middleman
-        if contact.back_ref:
-            key = str(contact.back_ref.key())
+        if contact.middleman_ref:
+            key = str(contact.middleman_ref.key())
 
         self.redirect('/editcontact?key=%s' % key)
 
@@ -687,21 +568,11 @@ class Deattic(webapp.RequestHandler):
             Deattic.deattic_take2(self,login_user,template_values)
 
 
-class Edittest(webapp.RequestHandler):
-    """Re-activate a property from archive"""
-
-    def get(self):
-        path = os.path.join(os.path.dirname(__file__), 'take2search1.html')
-        self.response.out.write(template.render(path, {}))
-
 
 application = webapp.WSGIApplication([('/editcontact', ContactEdit),
-                                      ('/savecompany', CompanySave),
-                                      ('/saveperson', PersonSave),
-                                      ('/edittest', Edittest),
                                       ('/edit.*', Edit),
                                       ('/new.*', New),
-                                      ('/save.*', Take2Save),
+                                      ('/save.*', Save),
                                       ('/attic.*', Attic),
                                       ('/deattic.*', Deattic),
                                      ],settings.DEBUG)

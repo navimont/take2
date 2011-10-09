@@ -62,8 +62,8 @@ body {
 }
 
 .small, small {
-	font-size: 11px;
-	line-height: 16px;
+	font-size: 12px;
+	line-height: 14px;
 }
 
 .error {
@@ -237,6 +237,21 @@ header a:link, header a:hover, header a:visited {
   text-decoration: underline;
 }
 
+/* form fields */
+#new_person label {
+  /* width works only together with float */
+  width: 130px;
+  float: left;
+}
+
+#new_person .button {
+  float: right;
+  background-color: #30C090;
+  padding: 10px;
+}
+
+#new_person .hint {
+}
 
 /*		Tablet Layout: 768px.
 		Gutters: 24px.

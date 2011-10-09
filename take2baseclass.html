@@ -58,15 +58,13 @@
         <ul>
           <li><a href="{{loginout_url}}">{{loginout_text}}</a></li>
           {% if signed_in %}
-            <li><a href="javascript:void(0)" onClick="post_to_url('/newperson')">New contact</a></li>
+            <li><a href="javascript:void(0)" onClick="post_to_url('/new', {'instance': 'Person,Email,Mobile'})">New contact</a></li>
           {% endif %}
         </ul>
       </nav>
       <a class="gigantic" href="/">Weschnitz</a>
       <p class="bigger">Simply an online address book.</p>
       <form name="search" action="/search" method="GET">
-          <input type="hidden" name="geolocation_request" value="{{geolocation_request}}">
-          <input type="hidden" name="login_user_key" value="{{login_user_key}}">
           <input type="hidden" value="search">
           <input id="autocomplete" type="text" name="query" value="{{ query|escape }}">
           <input type="submit" value="Search">

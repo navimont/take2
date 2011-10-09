@@ -47,11 +47,12 @@
             {% endif %}
           </a>
         </h2>
-        {% if contact.middleman_ref %}
-          <h3>
-            {{contact.relation}} (related through <a href="/editcontact?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
-          </h3>
-        {% endif %}
+        <h3>
+          {{contact.relation}}
+          {% if contact.middleman_ref %}
+            (related through <a href="/editcontact?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
+          {% endif %}
+        </h3>
       </header>
       <!-- properties for this contact -->
       {% for take2 in contact.take2 %}

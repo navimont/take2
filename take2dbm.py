@@ -113,16 +113,17 @@ class Contact(polymodel.PolyModel):
     timestamp = db.DateTimeProperty(auto_now=True)
     # points to the User instance who owns (created) the instance.
     owned_by = db.ReferenceProperty(LoginUser)
-    # This contact might be related to another person. If so, 'relation'
-    # describes the kind of the relation and back_ref points to the person.
-    # as an example, Jose is my friend and Nelly is his wife. There need not
-    # to be a back_ref from Jose to me (as I know him well) but Nelly may
+    # a line about who this person is
+    introduction = db.StringProperty()
+    # This contact might be related to another person. If so, 'introduction'
+    # describes the kind of the relation and middleman_ref points to the person.
+    # As an example, Jose is my friend and Nelly is his wife. There need not
+    # to be a middleman_ref from Jose to me (as I know him well) but Nelly may
     # just appear in my address book because she's his wife rather than
     # having a relation to me.
-    # So relation="My friend Jose's wife"
-    # [Nelly].back_ref --> [Jose]
-    back_rel = db.StringProperty()
-    back_ref = db.ReferenceProperty(collection_name='affix')
+    # introduction="My friend Jose's wife"
+    # [Nelly].middleman_ref --> [Jose]
+    middleman_ref = db.ReferenceProperty(collection_name='affix')
 
 class Company(Contact):
     """Represents a company"""
@@ -132,8 +133,6 @@ class Person(Contact):
     lastname = db.StringProperty()
     nickname = db.StringProperty()
     birthday = FuzzyDateProperty(default=FuzzyDate(0,0,0))
-    # a photo
-    photo = db.BlobProperty()
 
 class Take2(polymodel.PolyModel):
     """Base class for a contact's data.
@@ -160,6 +159,8 @@ class Address(Take2):
     """Point of interest as was loaded from the OSM database"""
     # Coordinates for this Address
     location = db.GeoPtProperty()
+    # set to true if coordinates shall not be overwritten by geocoding lookup
+    location_lock = db.BooleanProperty(default=False)
     # Address
     adr = db.StringListProperty(required=True)
     landline_phone = db.PhoneNumberProperty(required=False)

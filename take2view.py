@@ -157,15 +157,16 @@ def encode_contact(contact, login_user, include_attic=False, include_privacy=Fal
 
     # A user can see their own data, obviously
     if login_user and login_user.key() == contact.owned_by.key():
+        # introduction/relation to this person
+        result.relation = contact.introduction if contact.introduction else ""
         # Relation back to the middleman
-        if contact.back_ref:
-            result.relation = contact.back_rel if contact.back_rel else ""
-            result.middleman = contact.back_ref.name
-            result.middleman_ref = str(contact.back_ref.key())
+        if contact.middleman_ref:
+            result.middleman = contact.middleman_ref.name
+            result.middleman_ref = str(contact.middleman_ref.key())
 
         # Relation(s) going out from this person towards others
         result.contacts = []
-        # for con in Contact.all().filter("back_ref =", contact):
+        # for con in Contact.all().filter("middleman_ref =", contact):
         for con in contact.affix:
             if not con.attic or include_attic:
                 result.append_take2(con)

@@ -3,48 +3,6 @@
 {% block form %}
     <script language="JavaScript" type="text/javascript" src="/static/json2.js"></script>
     <script language="JavaScript" type="text/javascript">
-        var georequest = new XMLHttpRequest();
-
-        function checkReply() {
-            if (georequest.readyState == 4) {
-                if (georequest.status == 200) {
-                    var reply = georequest.responseText;
-                    var error = "";
-                    var geolatlon = {};
-                    try {
-                        geolatlon = JSON.parse(reply);
-                    } catch (e) {
-                        error = e;
-                    }
-                    if ( 'lat' in geolatlon ) {
-                        document.getElementById('lat').value = geolatlon["lat"];
-                        document.getElementById('lon').value = geolatlon["lon"];
-                        var adr_zoom = geolatlon["adr_zoom"];
-                        document.getElementById('adr_zoom').value = adr_zoom;
-                        // formatting efforts
-                        document.getElementById('adr_zoom_field').innerHTML = adr_zoom;
-                    }
-
-                    document.getElementById('globe').innerHTML = '<img src="static/spinning_globe0.gif">';
-                } else {
-                    // spinning
-                    document.getElementById('globe').innerHTML = '<img src="static/spinning_globe1.gif">';
-                }
-            }
-        }
-
-        function getlatlon() {
-            var adr = document.getElementById("adr_text").value;
-            // replace newlines by " "
-            adr = adr.replace("\n"," ")
-            var country = document.getElementById("country_text").value;
-            var url="/geo?adr="+adr+"+"+country;
-            // spinning
-            document.getElementById('globe').innerHTML = '<img src="static/spinning_globe1.gif">';
-            georequest.open("GET", url, true);
-            georequest.onreadystatechange = checkReply;
-            georequest.send(null);
-        }
     </script>
       <article>
         <p>

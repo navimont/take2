@@ -120,9 +120,9 @@ def encode_contact(contact, login_user, include_attic=False, is_admin=False):
                     'federated_provider': contact.owned_by.user.federated_provider()}
     # references other contact
     if contact.relation:
-        res['back_rel'] = contact.relation
-    if back_ref:
-        res['back_ref'] = contact.back_ref
+        res['introduction'] = contact.relation
+    if middleman_ref:
+        res['middleman_ref'] = contact.middleman_ref
 
     # takes care of the different take2 object structures
     res.update(encode_take2(contact, include_attic))
@@ -426,7 +426,7 @@ class Take2ImportTask(webapp.RequestHandler):
             key = old_key_to_new_key[child_old_key]
             # update child with back reference
             child = Contact.get(key)
-            child.back_ref = parent
+            child.middleman_ref = parent
             child.put()
 
         #

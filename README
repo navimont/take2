@@ -68,6 +68,9 @@ http://www.colorschemer.com/online.html
 # OpenId login
 http://plugins.jquery.com/project/OpenId
 
+# Google Maps Javascript API
+http://code.google.com/apis/maps/documentation/javascript/
+
 - In the javascript source openid-jquery.js the image path needs to be adapted:
 	img_path : '/static/openid/images/',
 

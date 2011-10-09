@@ -37,9 +37,11 @@
               locate_me();
           }
       });
-     </script>
+    </script>
 
-
+    <!-- lets the page know when a geolocation request shall be done -->
+    <div name="geolocation_request" value="{{geolocation_request}}"/>
+    <div name="login_user_key" value="{{login_user_key}}"/>
 
     {% if signed_in %}
       <!-- Show birthdays for signed in users -->
@@ -93,11 +95,12 @@
                   &nbsp;*{{contact.birthday}} {{contact.birthmonth}}
               {% endif %}
             </h2>
-            {% if contact.middleman_ref %}
-              <h3>
-                {{contact.relation}} (related through <a id="contact_link" href="/search?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
-              </h3>
-            {% endif %}
+            <h3>
+              {{contact.relation}}
+              {% if contact.middleman_ref %}
+                (related through <a id="contact_link" href="/search?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
+              {% endif %}
+            </h3>
           </header>
           <!-- properties for this contact -->
           {% for take2 in contact.take2 %}
