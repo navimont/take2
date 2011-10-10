@@ -236,6 +236,12 @@ header a:link, header a:hover, header a:visited {
   text-decoration: underline;
 }
 
+#new_customer .button {
+  background-color: #30C090;
+  padding: 12px;
+}
+
+
 /* form fields */
 #new_person label {
   /* width works only together with float */

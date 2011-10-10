@@ -33,12 +33,17 @@
             <option {% if birthmonth == month.0 %}selected{% endif %} value="{{month.0}}">{{month.1}}</option>
           {% endfor %}
         </select>
+        <select name="birthyear" size="0" id="signup_birthyear">
+          {% for year in yearlist %}
+            <option {% if birthyear == year %}selected{% endif %} value="{{year}}">{{year}}</option>
+          {% endfor %}
+        </select>
       </p>
 
       <h3>Terms and Conditions</h3>
       <ul id="signup">
         <li>Weschnitz will never make your personal data accessible to anyone without your consent.</li>
-        <li>Weschnitz will do its best to keep your personal data save.</li>
+        <li>Weschnitz will do its best to keep your personal data safe.</li>
         <li>Weschnitz will never display any advertisements on its site but this means that at some point we may
         start charging you a a small fee for extra services. However, storing your personal address book and
         accessing it online will always be free.</li>

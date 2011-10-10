@@ -4,7 +4,7 @@ import settings
 import logging
 import calendar
 from datetime import datetime
-from django.core.validators import validate_email
+from django.core.validators import validate_email, URLValidator
 from django.core.exceptions import ValidationError
 from google.appengine.ext import db
 from take2dbm import Contact, Person, Take2, FuzzyDate
@@ -12,7 +12,7 @@ from take2dbm import Email, Address, Mobile, Web, Other, Country, OtherTag
 from take2index import check_and_store_key
 
 
-def prepareListOfCountries():
+def prepare_list_of_countries():
     """prepares a list of countries in a
     datastructure ready for the template use"""
     landlist = []
@@ -20,7 +20,7 @@ def prepareListOfCountries():
         landlist.append(lc.country)
     return landlist
 
-def prepareListOfOtherTags():
+def prepare_list_of_other_tags():
     """prepares a list of previously used tags in a  data structure ready for the template use"""
     taglist = []
     for tag in OtherTag.all():
@@ -80,6 +80,7 @@ class PersonBean(ContactBean):
         person.lastname = entity.lastname
         person.birthday = entity.birthday
         person.introduction = entity.introduction
+        person.middleman_ref = entity.middleman_ref
         return person
 
     @classmethod
@@ -92,6 +93,7 @@ class PersonBean(ContactBean):
         person.nickname = request.get('nickname',"")
         person.lastname = request.get('lastname',"")
         person.introduction = request.get('introduction',"")
+        person.middleman_ref = request.get('middleman_ref',None)
         try:
             birthday = int(request.get("birthday", None))
         except ValueError:
@@ -114,36 +116,39 @@ class PersonBean(ContactBean):
         return person
 
     @classmethod
-    def new_person_via_middleman(cls, owned_by, middleman):
+    def new_person_via_middleman(cls, owned_by, middleman_ref):
         """factory method for a new person wirth middleman bean"""
-        return PersonBean(owned_by,middleman)
+        return PersonBean(owned_by,middleman_ref)
 
-    def __init__(self,owned_by,middleman_ref=None):
+    def __init__(self, owned_by, middleman_ref=None):
         super(PersonBean,self).__init__(owned_by)
         if middleman_ref:
-            # read middleman Person entry from DB
-            self.middleman = Person.get(middleman_ref)
+            self.middleman_ref = middleman_ref
         else:
-            self.middleman = None
+            self.middleman_ref = None
         self.name = ""
         self.nickname = ""
         self.lastname = ""
         self.introduction = ""
+        self.parent = None
         self.birthday = FuzzyDate(year=0,month=0,day=0)
 
     def validate(self):
         if len(self.name) < 1:
-            return ['Invalid name']
+            return ['Name is required']
         return []
 
     def get_template_values(self):
         """return person data as template_values"""
         super(PersonBean,self).get_template_values()
         self.template_values.update(prepare_birthday_selectors())
-        if self.middleman:
-            self.template_values['middleman_ref'] = str(self.middleman.key())
-            self.template_values['middleman_name'] = middleman.name
-            self.template_values['middleman_lastname'] = middleman.lastname
+        if self.middleman_ref:
+            self.template_values['middleman_ref'] = self.middleman_ref
+            # look him up to fill the fields
+            middleman = Person.get(self.middleman_ref)
+            if middleman:
+                self.template_values['middleman_name'] = middleman.name
+                self.template_values['middleman_lastname'] = middleman.lastname
         self.template_values['name'] = self.name
         self.template_values['nickname'] = self.nickname
         self.template_values['lastname'] = self.lastname
@@ -154,20 +159,30 @@ class PersonBean(ContactBean):
         return self.template_values
 
     def put(self):
+        if self.middleman_ref:
+            middleman = Person.get(self.middleman_ref)
+        else:
+            middleman = None
         try:
             self.entity.name = self.name
             self.entity.nickname = self.nickname
             self.entity.lastname = self.lastname
             self.entity.introduction = self.introduction
             self.entity.birthday = self.birthday
+            self.entity.middleman_ref = middleman
+            # parent is needed for building an entity group with LoginUser
+            self.entity.parent = self.parent
             self.entity.put()
         except AttributeError:
             # prepare database object for new person
-            self.entity = Person(owned_by=self.owned_by, name=self.name, lastname=self.lastname,
-                                 nickname=self.nickname, birthday=self.birthday, introduction=self.introduction)
+            self.entity = Person(parent=self.parent, owned_by=self.owned_by, name=self.name,
+                                lastname=self.lastname,
+                                nickname=self.nickname, birthday=self.birthday,
+                                introduction=self.introduction, middleman_ref=middleman)
             self.entity.put()
-        # generate search keys for contact
-        check_and_store_key(self.entity)
+        if not self.parent:
+            # generate search keys for contact; cannot run in transaction context
+            check_and_store_key(self.entity)
 
 
 class Take2Bean(EntityBean):
@@ -298,11 +313,11 @@ class WebBean(Take2Bean):
         self.web = ""
 
     def validate(self):
-        try:
-            validate_url(self.web)
-        except ValidationError:
-            return ['Invalid web address']
-        return []
+      validate = URLValidator(verify_exists=True)
+      try:
+          validate(self.web)
+      except ValidationError:
+        return ['Invalid web address']
 
     def get_template_values(self):
         super(WebBean,self).get_template_values()
@@ -357,6 +372,7 @@ class OtherBean(Take2Bean):
         super(OtherBean,self).get_template_values()
         self.template_values['text'] = self.text
         self.template_values['tag'] = self.tag
+        self.template_values['taglist'] = prepare_list_of_other_tags()
         return self.template_values
 
     def put(self):
@@ -433,7 +449,10 @@ class AddressBean(Take2Bean):
         self.adr_zoom = ""
 
     def validate(self):
-        return []
+        adr = "".join(self.adr)
+        adr = adr+self.country
+        if len(adr) < 3 and self.lat == 0.0 and self.lon == 0.0:
+            return ['Please enter an address']
 
     def get_template_values(self):
         super(AddressBean,self).get_template_values()
@@ -447,7 +466,7 @@ class AddressBean(Take2Bean):
         self.template_values['map_zoom'] = str(self.map_zoom)
         if self.adr_zoom and len(self.adr_zoom) > 0:
             self.template_values['adr_zoom'] = ", ".join(self.adr_zoom)
-        self.template_values['landlist'] = prepareListOfCountries()
+        self.template_values['landlist'] = prepare_list_of_countries()
         return self.template_values
 
     def put(self):

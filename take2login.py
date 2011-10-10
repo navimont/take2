@@ -16,9 +16,8 @@ from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import LoginUser, Person, FuzzyDate
 from take2access import get_login_user, get_current_user_template_values
-from take2misc import prepare_birthday_selectors
+from take2beans import prepare_birthday_selectors, PersonBean
 from take2index import check_and_store_key
-
 
 class Take2Welcome(webapp.RequestHandler):
     """Opens the page where the user can enter his/her name for the first time
@@ -26,12 +25,12 @@ class Take2Welcome(webapp.RequestHandler):
 
     def get(self):
         """processes the signup form"""
-        google_user = users.get_current_user()
-        login_user = LoginUser.all().filter('user =', google_user).get()
+        authenticated_user = users.get_current_user()
+        login_user = LoginUser.all().filter('user =', authenticated_user).get()
         template_values = get_current_user_template_values(login_user,self.request.uri)
 
         # not logged in
-        if not google_user:
+        if not authenticated_user:
             self.redirect('/login')
             return
 
@@ -46,18 +45,33 @@ class Take2Welcome(webapp.RequestHandler):
         self.response.out.write(template.render(path, template_values))
         return
 
+def initial_user_setup(auth_user, person):
+    """Runs in a single transaction and sets up the LoginUser and its representation as a Person"""
+
+    login_user = LoginUser(user=auth_user, user_id=auth_user.federated_identity(), location=db.GeoPt(0,0))
+    login_user.put()
+
+    person.owned_by = login_user
+    person.parent = login_user
+    person.put()
+
+    # save the reference to person in login_user
+    login_user.me = person.entity
+    login_user.put()
+
+
 
 class Take2Signup(webapp.RequestHandler):
     """User signup. Checks for name, last name and connects to a LoginUser (google) account"""
 
     def get(self):
         """processes the signup form"""
-        google_user = users.get_current_user()
-        login_user = LoginUser.all().filter('user =', google_user).get()
+        authenticated_user = users.get_current_user()
+        login_user = LoginUser.all().filter('user_id =', authenticated_user.federated_identity()).get()
         template_values = get_current_user_template_values(login_user,self.request.uri)
 
         # not logged in
-        if not google_user:
+        if not authenticated_user:
             self.redirect('/login')
             return
 
@@ -68,43 +82,32 @@ class Take2Signup(webapp.RequestHandler):
 
         template_values['errors'] = []
 
-        name=self.request.get("name", None)
-        if not name:
-            template_values['errors'].append("Your name is the only required field. Please fill it in.")
+        person = PersonBean.edit(None,self.request)
+        template_values.update(person.get_template_values())
+        err = person.validate()
         terms=self.request.get("terms", None)
         if not terms:
-            template_values['errors'].append("You must also acknowledge the terms and conditions.")
+            err.append("You must also acknowledge the terms and conditions.")
 
-        if not template_values['errors']:
-            person = Person(name=name, lastname=self.request.get("lastname", None))
+        if not err:
             try:
-                birthday = int(self.request.get("birthday", None))
-            except ValueError:
-                birthday = 0
-            except TypeError:
-                birthday = 0
-            try:
-                birthmonth = int(self.request.get("birthmonth", None))
-            except ValueError:
-                birthmonth = 0
-            except TypeError:
-                birthmonth = 0
-            person.birthday = FuzzyDate(day=birthday,month=birthmonth,year=0000)
-            person.owned_by = login_user
-            person.put()
-            # generate search keys for new contact
-            check_and_store_key(person)
-            # Create login_user in DB
-            login_user = LoginUser(user=google_user, me=person, location=db.GeoPt(0,0))
-            login_user.put()
+                db.run_in_transaction(initial_user_setup, authenticated_user, person)
+            except:
+                # an error occured in storing the data
+                logging.exception('Transaction failed while storing LoginUser and Person')
+                template_values['errors'].append('Database error. Sorry.')
+        else:
+            template_values['errors'].extend(err)
 
         if len(template_values['errors']):
-            template_values.update(prepare_birthday_selectors())
-            for arg in self.request.arguments():
-                template_values[arg] = self.request.get(arg)
             path = os.path.join(os.path.dirname(__file__), "take2welcome.html")
             self.response.out.write(template.render(path, template_values))
             return
+
+        # create search index which is usually done by the PersonBean but not here
+        # because the index table is not in the entity group
+        login_user = LoginUser.all().filter("user_id =", authenticated_user.federated_identity()).get()
+        check_and_store_key(login_user.me)
 
         self.redirect('/search')
 

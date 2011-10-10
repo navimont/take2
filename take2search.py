@@ -74,6 +74,9 @@ class Take2Search(webapp.RequestHandler):
         contact_key = self.request.get('key',"")
         archive = True if self.request.get('attic',"") == 'True' else False
 
+        #
+        # geolocation
+        #
         if login_user:
             # ask user for geolocation. The date check makes sure that we don't bother the user
             # with the request too often. Users who disable the geolocation feature have a
@@ -136,8 +139,16 @@ class Take2Search(webapp.RequestHandler):
         elif len(result) == 0:
             # display current user data
             if login_user and login_user.me:
-                con = encode_contact(login_user.me, include_attic=False, login_user=login_user)
-                result.append(con)
+                try:
+                    con = encode_contact(login_user.me, include_attic=False, login_user=login_user)
+                    result.append(con)
+                    # check if the poor guy just started
+                    if not con.mobile.has_data and not con.address.has_data:
+                        template_values['new_customer'] = True
+                        template_values['new_customer_key'] = str(login_user.me.key())
+                except AttributeError:
+                    logging.critical("AttributeError while encoding")
+
 
         #
         # birthday search

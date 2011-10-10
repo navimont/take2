@@ -68,9 +68,12 @@ class MobileView(Take2View):
 class OtherView(Take2View):
     def __init__(self, obj):
         super(OtherView, self).__init__(obj)
-        self.data = "%s %s" % (obj.tag.tag, obj.text)
-        self.tag = obj.tag.tag
         self.text = obj.text
+        if obj.tag:
+            self.tag = obj.tag.tag
+            self.data = "%s %s" % (obj.tag.tag, obj.text)
+        else:
+            self.data = self.text
 
 class AddressView(Take2View):
     def __init__(self,obj):
@@ -90,7 +93,7 @@ class ContactView():
         self.attic = contact.attic
         self.key = str(contact.key())
         self.class_name = contact.class_name()
-        self.affix = Take2Overview('Contacts, Family & Friends','Contact')
+        self.affix = Take2Overview('Contacts, Family & Friends','Person')
         self.email = Take2Overview('Email','Email')
         self.mobile = Take2Overview('Mobile Phone','Mobile')
         self.web = Take2Overview('Web site','Web')

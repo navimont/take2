@@ -19,11 +19,11 @@ from google.appengine.ext import webapp
 from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
-from take2dbm import Person, Contact
+from take2dbm import Person, Contact, Take2
 from take2access import MembershipRequired, write_access, visible_contacts
 from take2view import encode_contact
 from take2index import check_and_store_key
-from take2beans import PersonBean, EmailBean, MobileBean, AddressBean
+from take2beans import PersonBean, EmailBean, MobileBean, AddressBean, WebBean, OtherBean
 
 class ContactEdit(webapp.RequestHandler):
     """present a contact including old data (attic) for editing"""
@@ -90,13 +90,14 @@ class Save(webapp.RequestHandler):
             err = person.validate()
             if not err:
                 person.put()
-                if not contact:
-                    contact = person.get_entity()
             else:
                 template_values['errors'].extend(err)
+            # This is now the person to which the take2 data relates
+            contact = person.get_entity()
 
         # go through all take2 types
-        for (bean_name,bean_class) in (('Email',EmailBean),('Mobile',MobileBean),('Address',AddressBean)):
+        for (bean_name,bean_class) in (('Email',EmailBean),('Mobile',MobileBean),('Address',AddressBean),
+                                        ('Web',WebBean),('Other',OtherBean)):
             if bean_name in instance_list:
                 obj = bean_class.edit(contact, self.request)
                 template_values.update(obj.get_template_values())
@@ -104,10 +105,11 @@ class Save(webapp.RequestHandler):
                 if not err:
                     obj.put()
                 else:
-                    # If object is new, not edited, we can safely ignore this
-                    # We know that it's new if there is no <Class>_key entry in the request
-                    if self.request.get('%s_key' % bean_name, None):
-                        template_values['errors'].extend(err)
+                    # If the object is there in conjunction with the person that
+                    # means it's just not filled in. We save only the person, that's fine
+                    if 'Person' in instance_list:
+                        continue
+                    template_values['errors'].extend(err)
 
 
         # if errors happened, re-display the form
@@ -143,7 +145,8 @@ class New(webapp.RequestHandler):
                 person = PersonBean.new_person(login_user)
             template_values.update(person.get_template_values())
         # go through all take2 types
-        for (bean_name,bean_class) in (('Email',EmailBean),('Mobile',MobileBean),('Address',AddressBean)):
+        for (bean_name,bean_class) in (('Email',EmailBean),('Mobile',MobileBean),('Address',AddressBean),
+                                        ('Web',WebBean),('Other',OtherBean)):
             if bean_name in instance_list:
                 obj = bean_class.new(contact_ref)
                 template_values.update(obj.get_template_values())
@@ -194,9 +197,15 @@ class Edit(webapp.RequestHandler):
         #
         # Use beans to prepare form data
         #
-        for (bean_name,bean_class) in (('Person',PersonBean),('Email',EmailBean),('Mobile',MobileBean),('Address',AddressBean)):
+        for (bean_name,bean_class) in (('Person',PersonBean),('Email',EmailBean),('Mobile',MobileBean),
+                                        ('Address',AddressBean),('Web',WebBean),('Other',OtherBean)):
             if bean_name in instance_list:
-                obj = bean_class.load(self.request.get('%s_key' % bean_name))
+                key = self.request.get('%s_key' % bean_name, None)
+                if not key and not bean_name == 'Person':
+                    # We simply treat this as a new object
+                    obj = bean_class.new(contact_ref)
+                else:
+                    obj = bean_class.load(key)
                 template_values.update(obj.get_template_values())
 
         # instances as list and as concatenated string

@@ -38,17 +38,17 @@ def write_access(obj, login_user):
 def get_login_user():
     """Find the account which represents the currently logged in google user"""
 
-    google_user = users.get_current_user()
+    authenticated_user = users.get_current_user()
 
-    if not google_user:
+    if not authenticated_user:
         return None
 
     q_me = LoginUser.all()
-    q_me.filter('user =', google_user)
+    q_me.filter('user_id =', authenticated_user.federated_identity())
     me = q_me.fetch(3)
     if len(me) > 0:
         if len(me) > 1:
-            logging.error ("more than one person with google account: %s [%s]" % (user.nickname,user.user_id))
+            logging.critical ("more than one person with google account: %s [%s]" % (authenticated_user.nickname(),authenticated_user.user_id()))
         me = me[0]
     else:
         logging.error ("No Person registered for login_user")

@@ -103,11 +103,26 @@ Address-Information
         }
 
         $(document).ready(function() {
+          {% if 'Address' in instance_list %}
             prepareCountryAutocomplete();
+          {% endif %}
+          {% if 'Other' in instance_list %}
             prepareOtherAutocomplete();
-            // display map and set it to a reasonable positions
-            loadMapScript();
+          {% endif %}
+          // display map and set it to a reasonable positions
+          loadMapScript();
         });
+
+
+        // make sure web address starts with http
+        function httpStarter() {
+            var web = $("input#web").val();
+            web = jQuery.trim(web);
+            if (web.indexOf("http://") < 0) {
+                $("input#web").val("http://"+web);
+            }
+        }
+
 
         /*
         *  prepare value list for country autocompletion field
@@ -122,9 +137,9 @@ Address-Information
             });
         }
 
-        function prepareCountryAutocomplete() {
+        function prepareOtherAutocomplete() {
             // auto-complete for search box
-            $("input#what_autocompl").autocomplete( {
+            $("input#tag_autocompl").autocomplete( {
                 source: [
                       {% for tag in taglist %}
                           "{{tag}}",
@@ -212,7 +227,7 @@ Address-Information
               <div class="">
                 <input name="Web_key" type="hidden" value="{{ Web_key }}">
                 <label for="web">Web site:</label>
-                <input name="web" type="url" value="{{web}}">
+                <input id="web" name="web" type="text" value="{{web}}" placeholder="http://" onChange="httpStarter();" onMouseOut="httpStarter();" size="55">
               </div>
           {% endif %}
           {% if 'Address' in instance_list %}
@@ -226,7 +241,7 @@ Address-Information
                 <textarea id="adr_text" name="adr" rows="4" cols="40">{{adr}}</textarea>
               </div>
               <div class="">
-                <label for="country">Country</label>
+                <label for="country">Country:</label>
                 <input id="country_text" type="text" name="country" value="{{country}}">
               </div>
               <div class="">
@@ -241,7 +256,7 @@ Address-Information
                 <input id='map_zoom' type="hidden" name="map_zoom" value="{{map_zoom}}">
                 <label for="location_loc">Lock:</label>
                 <input id="location_lock" type="checkbox" name="location_lock" value="location_lock" {% if location_lock %} checked="checked" {% endif %}>
-                <span class="small"><em>Show on map</em> will not update coordinates if selected.</span>
+                <span class="small"><em>Show on map</em> will not update coordinates.</span>
               </div>
               <div>
                   <small><span id="adr_zoom">{{adr_zoom}}</span></small>&nbsp;
@@ -254,8 +269,8 @@ Address-Information
           {% if 'Other' in instance_list %}
               <div class="">
                 <input name="Other_key" type="hidden" value="{{ Other_key }}">
-                <label for="what">Type:</label>
-                <input id="what_autocompl" type="text" name="what" value="{{tag}}">
+                <label for="tag">Type:</label>
+                <input id="tag_autocompl" type="text" name="tag" value="{{tag}}">
                 <label for="text">Info:</label>
                 <input name="text" type="text" value="{{text}}">
               </div>

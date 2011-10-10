@@ -37,33 +37,34 @@ class Take2ShareSave(webapp.RequestHandler):
     @MembershipRequired
     def post(self, login_user=None, template_values={}):
         transactions = self.request.get('transactions', None)
-        transaction_set = json.loads(transactions)
-        contact_ref = transaction_set[0]
-        # make sure we received data for the right user
-        assert contact_ref == str(login_user.me.key()), "/sharesave received data for wrong user"
+        if transactions:
+            transaction_set = json.loads(transactions)
+            contact_ref = transaction_set[0]
+            # make sure we received data for the right user
+            assert contact_ref == str(login_user.me.key()), "/sharesave received data for wrong user"
 
-        # transfer all click transactions the user has made into a dictionary
-        # with the key as dictionary key, so that only the last decision survives
-        privacy_transactions = {}
-        for tr in transaction_set[1:]:
-            privacy_transactions[tr['key']] = tr['privacy']
+            # transfer all click transactions the user has made into a dictionary
+            # with the key as dictionary key, so that only the last decision survives
+            privacy_transactions = {}
+            for tr in transaction_set[1:]:
+                privacy_transactions[tr['key']] = tr['privacy']
 
-        # apply privacy settings
-        for key,privacy_setting in privacy_transactions.items():
-            logging.debug("apply privacy setting contact: %s take2: %s %s" % (contact_ref,key,privacy_setting))
-            # delete all existing datasets for this key
-            delete = SharedTake2.all().filter("take2_ref =", Key(key))
-            db.delete(delete)
-            if privacy_setting == 'private':
-                pass
-            elif privacy_setting == 'restricted':
-                RestrictedTake2(contact_ref=Key(contact_ref), take2_ref=Key(key)).put()
-            elif privacy_setting == 'public':
-                data = PublicTake2(contact_ref=Key(contact_ref), take2_ref=Key(key)).put()
-            else:
-                logging.critical("Unknown privacy setting: %s" % privacy_setting)
-                self.error(500)
-                return
+            # apply privacy settings
+            for key,privacy_setting in privacy_transactions.items():
+                logging.debug("apply privacy setting contact: %s take2: %s %s" % (contact_ref,key,privacy_setting))
+                # delete all existing datasets for this key
+                delete = SharedTake2.all().filter("take2_ref =", Key(key))
+                db.delete(delete)
+                if privacy_setting == 'private':
+                    pass
+                elif privacy_setting == 'restricted':
+                    RestrictedTake2(contact_ref=Key(contact_ref), take2_ref=Key(key)).put()
+                elif privacy_setting == 'public':
+                    data = PublicTake2(contact_ref=Key(contact_ref), take2_ref=Key(key)).put()
+                else:
+                    logging.critical("Unknown privacy setting: %s" % privacy_setting)
+                    self.error(500)
+                    return
 
         self.redirect("/search?key=%s" % str(login_user.me.key()))
 

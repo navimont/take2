@@ -90,8 +90,11 @@ class LoginUser(GeoModel):
     It supports geospatial queries with the help of GeoModel
     Call update_location() method before storing location changes.
     """
-    # google login
+    # user data as returned by users.get_current_user()
     user = db.UserProperty()
+    # a duplicate, I do save user.federated_identity to this
+    # field because a query with a yahoo identity fails on user
+    user_id = db.StringProperty()
     # location attribute comes from parent class and is required
     location_timestamp = db.DateTimeProperty()
     # points to the Person which represents this user

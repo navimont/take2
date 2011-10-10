@@ -3,6 +3,14 @@ A linked address database
 
 see: http://www.weschnitz.com
 
+*** Find your way through the source files
+
+The database structure is defined in take2dbm.py
+Start looking into take2search.py which implements the central search functionality.
+Another central source file is take2edit.py where new data is added to the address book
+or updated or deleted.
+
+
 
 *** Implemented features
 
@@ -40,6 +48,9 @@ see: http://www.weschnitz.com
 
 * manage application:
 https://appengine.google.com/
+
+* appengine link
+http://take2nitz.appspot.com/
 
 *** History
 

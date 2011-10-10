@@ -58,7 +58,9 @@
     {% else %}
         <p>You can search for people here who have some of their contact information made public.</p>
         <p>If you want to start tour own address book, you need to <a href="/login">sign in</a>. Simply use your existing account with google, yahoo or another <a href="http://openid.net/">openId</a> provider.</p>
-        <div style="width: 300px; height: 30px;"></div>
+        <div class="vertical-space"></div>
+        <div class="vertical-space"></div>
+        <div class="vertical-space"></div>
     {% endif %}
     {% if result %}
         {% if query %}
@@ -106,7 +108,7 @@
           {% for take2 in contact.take2 %}
             {% if take2.has_data %}
               <hr>
-              {% if take2.class_name == 'Contact' %}
+              {% if take2.class_name == 'Contact' or take2.class_name == 'Person' %}
                 {% for data in take2.data %}
                   <a id="contact_link" href="/search?key={{data.key}}">{{data.data}}</a>
                   {% if not forloop.last %}
@@ -136,7 +138,18 @@
     {% endif %}
     {% if signed_in %}
       {% if not query %}
-        <div style="width: 300px; height: 30px;"></div>
+        {% if new_customer %}
+            <div class="vertical-space"></div>
+            <div class="vertical-space"></div>
+            <div class="vertical-space"></div>
+            <div id="new_customer">
+                Start entering your data:
+                <a class="button" href="javascript:void(0)" onClick="post_to_url('/edit', {'instance': 'Person,Mobile,Address', 'Person_key': '{{new_customer_key}}', 'contact_ref': '{{new_customer_key}}'})">
+                Click here</a>
+            </div>
+        {% endif %}
+        <div class="vertical-space"></div>
+        <div class="vertical-space"></div>
         <h2>The search page at Weschnitz.</h2>
         <h3>What you can do from here:</h3>
           <ul>
