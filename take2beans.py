@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from google.appengine.ext import db
 from take2dbm import Contact, Person, Take2, FuzzyDate
 from take2dbm import Email, Address, Mobile, Web, Other, Country, OtherTag
-from take2index import check_and_store_key
+from take2index import update_index
 
 
 def prepare_list_of_countries():
@@ -182,7 +182,7 @@ class PersonBean(ContactBean):
             self.entity.put()
         if not self.parent:
             # generate search keys for contact; cannot run in transaction context
-            check_and_store_key(self.entity)
+            update_index(self.entity)
 
 
 class Take2Bean(EntityBean):
@@ -494,6 +494,7 @@ class AddressBean(Take2Bean):
                                   location=db.GeoPt(lon=self.lon, lat=self.lat), location_lock=self.location_lock,
                                   map_zoom=self.map_zoom, adr_zoom=self.adr_zoom)
             self.entity.put()
+        update_index(self.entity)
 
 
 def main():

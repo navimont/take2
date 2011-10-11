@@ -1,60 +1,88 @@
-{% extends "take2baseclass.html" %}
+<!doctype html>
+<html>
+  <head>
+		<meta charset="utf-8"/>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+    <meta name="description" content="Linked Address Book"/>
+    <!-- Opengraph.org tags -->
+    <meta property="og:title" content="Take2 - Linked Address Book" />
+    <meta property="og:type" content="non_profit" />
+    <meta property="og:url" content="http://adr.weschnitz.com/" />
+    <meta property="og:site_name" content="" />
+    <meta property="og:description" content=""/>
+    <!-- weschnitz browser tab icon -->
+    <!-- <link rel="shortcut icon" href=""> -->
 
-{% block content %}
-  {% for error in errors %}
-      <div class="error">{{ error }}</div>
-  {% endfor %}
+    <!-- Stylesheets -->
+		<link rel="stylesheet" media="all" href="static/take2.css"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Sign up to Weschnitz</title>
+  </head>
 
-  <header>
+  <body lang="en">
+    <header id="masthead">
+      <a class="gigantic" href="/">Weschnitz</a>
+      <p class="bigger">Your address book online.</p>
+    </header>
+    <div id='page_content'>
+
+    <header>
       <h1>Sign up</h1>
-  </header>
+    </header>
 
-  <article>
-    <p>To use Weschnitz as your address book, you must first enter your own name.</p>
+    {% for error in errors %}
+        <div class="error">{{ error }}</div>
+    {% endfor %}
 
-    <form action="/signup" method="get">
-      <p>
-        <label for="name">First name:</label>
-        <input name="name" type="text" id="signup_name" value="{{name}}" placeholder="your name"/>
-      </p>
-      <p>
-        <label for="lastname">Last name:</label>
-        <input name="lastname" type="text" id="signup_lastname" value="{{lastname}}"/>
-      </p>
-      <p>
-        <label for="birthday">Birthday:</label>
-        <select name="birthday" size="0" id="signup_birthday">
-          {% for day in daylist %}
-            <option {% if birthday == day %}selected{% endif %} value="{{day}}">{{day}}</option>
-          {% endfor %}
-        </select>
-        <select name="birthmonth" size="0" id="signup_birthmonth">
-          {% for month in monthlist %}
-            <option {% if birthmonth == month.0 %}selected{% endif %} value="{{month.0}}">{{month.1}}</option>
-          {% endfor %}
-        </select>
-        <select name="birthyear" size="0" id="signup_birthyear">
-          {% for year in yearlist %}
-            <option {% if birthyear == year %}selected{% endif %} value="{{year}}">{{year}}</option>
-          {% endfor %}
-        </select>
-      </p>
+       <article>
+        <p>To use Weschnitz as your address book, you must first enter your own name.</p>
 
-      <h3>Terms and Conditions</h3>
-      <ul id="signup">
-        <li>Weschnitz will never make your personal data accessible to anyone without your consent.</li>
-        <li>Weschnitz will do its best to keep your personal data safe.</li>
-        <li>Weschnitz will never display any advertisements on its site but this means that at some point we may
-        start charging you a a small fee for extra services. However, storing your personal address book and
-        accessing it online will always be free.</li>
-      </ul>
-      <p>
-        <input name="terms" type="checkbox" value="False" id="signup_terms"/>
-        <label for="admin">Accept terms and conditions</label>
-      </p>
-      <p>
-        <input name="action" value="Sign up" type="submit" id="signup_submit"/>
-      </p>
-    </form>
-  </article>
-{% endblock %}
+        <form action="/signup" method="get">
+          <p>
+            <label for="name">First name:</label>
+            <input name="name" type="text" id="signup_name" value="{{name}}" placeholder="your name"/>
+          </p>
+          <p>
+            <label for="lastname">Last name:</label>
+            <input name="lastname" type="text" id="signup_lastname" value="{{lastname}}"/>
+          </p>
+          <p>
+            <label for="birthday">Birthday:</label>
+            <select name="birthday" size="0" id="signup_birthday">
+              {% for day in daylist %}
+                <option {% if birthday == day %}selected{% endif %} value="{{day}}">{{day}}</option>
+              {% endfor %}
+            </select>
+            <select name="birthmonth" size="0" id="signup_birthmonth">
+              {% for month in monthlist %}
+                <option {% if birthmonth == month.0 %}selected{% endif %} value="{{month.0}}">{{month.1}}</option>
+              {% endfor %}
+            </select>
+            <select name="birthyear" size="0" id="signup_birthyear">
+              {% for year in yearlist %}
+                <option {% if birthyear == year %}selected{% endif %} value="{{year}}">{{year}}</option>
+              {% endfor %}
+            </select>
+          </p>
+
+          <h3>Terms and Conditions</h3>
+          <ul id="signup">
+            <li>Weschnitz will never make your personal data accessible to anyone without your consent.</li>
+            <li>Weschnitz will do its best to keep your personal data safe.</li>
+            <li>Weschnitz will never display any advertisements on its site but this means that at some point we may
+            start charging you a a small fee for extra services. However, storing your personal address book and
+            accessing it online will always be free.</li>
+          </ul>
+          <p>
+            <input name="terms" type="checkbox" value="False" id="signup_terms"/>
+            <label for="admin">Accept terms and conditions</label>
+          </p>
+          <p>
+            <input name="action" value="Sign up" type="submit" id="signup_submit"/>
+          </p>
+        </form>
+      </article>
+    </div>
+  </body>
+</html>
+

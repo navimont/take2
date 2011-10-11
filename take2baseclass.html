@@ -7,7 +7,7 @@
     <!-- Opengraph.org tags -->
     <meta property="og:title" content="Take2 - Linked Address Book" />
     <meta property="og:type" content="non_profit" />
-    <meta property="og:url" content="http://www.navimont.com/" />
+    <meta property="og:url" content="http://adr.weschnitz.com/" />
     <meta property="og:site_name" content="" />
     <meta property="og:description" content=""/>
     <!-- weschnitz browser tab icon -->
@@ -56,7 +56,14 @@
     <header id="masthead">
       <nav>
         <ul>
-          <li><a href="{{loginout_url}}">{{loginout_text}}</a></li>
+          <li>
+              <a href="{{loginout_url}}">{{loginout_text}}</a>
+              <span id="login_user_place">
+                  {% if login_user_place %}
+                      ({{ login_user_place }})
+                  {% endif %}
+              </span>
+          </li>
           {% if signed_in %}
             <li><a href="javascript:void(0)" onClick="post_to_url('/new', {'instance': 'Person,Email,Mobile,Address'})">New contact</a></li>
           {% endif %}

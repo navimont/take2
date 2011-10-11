@@ -17,7 +17,6 @@ from google.appengine.api import memcache
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate, LoginUser, OtherTag
 from take2dbm import Email, Address, Mobile, Web, Other, Country, PlainKey, ContactIndex
 from take2access import get_current_user_template_values, visible_contacts, get_login_user
-from take2index import check_and_store_key
 
 def encode_take2(contact, include_attic=False):
     """Encodes the contact's take2 property objects

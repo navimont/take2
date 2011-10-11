@@ -1,0 +1,145 @@
+/*	Less Framework 4
+	http://lessframework.com
+	by Joni Korpi
+	License: http://opensource.org/licenses/mit-license.php	*/
+
+
+/*	Resets
+	------	*/
+
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6,
+p, blockquote, pre, a, abbr, address, cite, code, del, dfn, em,
+img, ins, kbd, q, samp, small, strong, sub, sup, var, b, i, hr,
+dl, dt, dd, ol, ul, li, fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, figure, figcaption, hgroup,
+menu, footer, header, nav, section, summary, time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+article, aside, canvas, figure, figure img, figcaption, hgroup,
+footer, header, nav, section, audio, video {
+	display: block;
+}
+
+a img {border: 0;}
+
+
+
+/*	Typography presets
+	------------------	*/
+
+.gigantic {
+	font-size: 68px;
+	line-height: 70px;
+	letter-spacing: -1px;
+}
+
+.huge, h1 {
+	font-size: 40px;
+	line-height: 42px;
+}
+
+.large, h2 {
+	font-size: 24px;
+	line-height: 30px;
+}
+
+.bigger, h3 {
+	font-size: 18px;
+	line-height: 24px;
+}
+
+.big, h4 {
+	font-size: 14px;
+	line-height: 16px;
+}
+
+body {
+	font: 17px/24px Palatino, Constantia, "Palatino Linotype", serif;
+}
+
+.small, small {
+	font-size: 12px;
+	line-height: 16px;
+}
+
+.error {
+  border: 2px solid red;
+	text-align: center;
+	margin: 0px;
+	text-shadow: 2px 2px 2px #fff;
+}
+
+/* Selection colours (easy to forget) */
+
+::selection 	 	{background: rgb(255,255,158);}
+::-moz-selection 	{background: rgb(255,255,158);}
+img::selection 		{background: transparent;}
+img::-moz-selection	{background: transparent;}
+body {-webkit-tap-highlight-color: rgb(255,255,158);}
+
+html, body, #map-full
+{
+    height: 100%;
+}
+
+body {
+    padding: 0;
+    margin: 0;
+    background-color: #CCCCCC;
+    color: #3D3D3D;
+}
+
+#map-full {
+}
+
+#loginout {
+    text-align: right;
+}
+
+#map-siding a:link, #map-siding a:hover, #map-siding a:visited {
+  color: #303030;
+  text-decoration: none;
+}
+
+#map-siding a:hover {
+    cursor: pointer;
+}
+
+#login_user_place {
+    text-align: right;
+}
+
+#map-siding
+{
+    float: left;
+    width: 230px;
+    background-color: #CCCCCC;
+    padding-top: 10px;
+    padding-left: 10px;
+    padding-right: 20px;
+}
+
+#weschnitz {
+    padding-top: 20px;
+}
+
+#searchbox {
+  padding-top: 20px;
+}
+
+#searchbox input {
+    width: 200px;
+}
+
+#results {
+    height: 100%;
+}
+
+footer {
+  position: absolute;
+  bottom: 10px;
+}

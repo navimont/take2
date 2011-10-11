@@ -72,7 +72,17 @@ class Take2Search(webapp.RequestHandler):
 
         query = self.request.get('query',"")
         contact_key = self.request.get('key',"")
-        archive = True if self.request.get('attic',"") == 'True' else False
+
+        # That's the standard case
+        include_attic = False
+        try:
+            # if the user specifies 'attic' in the query string, old data is included
+            queries = query.split()
+            queries.remove('attic')
+            query = " ".join(queries)
+            include_attic = True
+        except ValueError:
+            pass
 
         #
         # geolocation
@@ -89,7 +99,7 @@ class Take2Search(webapp.RequestHandler):
                 login_user.ask_geolocation = datetime.now() + timedelta(hours=30)
                 login_user.put()
 
-        logging.debug("Search query: %s archive: %d key: %s " % (query,archive,contact_key))
+        logging.debug("Search query: %s include_attic: %d key: %s " % (query,include_attic,contact_key))
 
         result = []
 
@@ -103,7 +113,7 @@ class Take2Search(webapp.RequestHandler):
                 template_values['result_size'] = len(last['results'])
                 template_values['query'] = last['query']
                 for contact in db.get(last['results'][last['offset']:settings.RESULT_SIZE]):
-                    con = encode_contact(contact, include_attic=False, login_user=login_user)
+                    con = encode_contact(contact, include_attic=include_attic, login_user=login_user)
                     result.append(con)
 
         #
@@ -113,7 +123,7 @@ class Take2Search(webapp.RequestHandler):
         if contact_key:
             contact = Contact.get(contact_key)
             # this is basically a db dump
-            con = encode_contact(contact, include_attic=False, login_user=login_user)
+            con = encode_contact(contact, include_attic=include_attic, login_user=login_user)
             result.append(con)
 
         #
@@ -121,7 +131,7 @@ class Take2Search(webapp.RequestHandler):
         #
 
         if query:
-            cis = lookup_contacts(query)
+            cis = lookup_contacts(query, include_attic)
             # Save the query result in memcache together with the information about
             # which portion of it we are displaying (the first result_size datasets as
             # it is a fresh query!)
@@ -133,14 +143,14 @@ class Take2Search(webapp.RequestHandler):
             for contact in db.get(cis[0:settings.RESULT_SIZE]):
                 # I did not understand why but there was once a key without object coming up
                 if contact:
-                    con = encode_contact(contact, include_attic=False, login_user=login_user)
+                    con = encode_contact(contact, include_attic=include_attic, login_user=login_user)
                     result.append(con)
 
         elif len(result) == 0:
             # display current user data
             if login_user and login_user.me:
                 try:
-                    con = encode_contact(login_user.me, include_attic=False, login_user=login_user)
+                    con = encode_contact(login_user.me, include_attic=include_attic, login_user=login_user)
                     result.append(con)
                     # check if the poor guy just started
                     if not con.mobile.has_data and not con.address.has_data:

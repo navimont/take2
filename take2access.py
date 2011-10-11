@@ -1,4 +1,4 @@
-"""Take2 functions for user access right checks"""
+"""Functions for user access right checks"""
 
 import os
 import logging
@@ -9,11 +9,10 @@ from google.appengine.api import users
 from take2dbm import Person, Contact, LoginUser, FuzzyDate
 from google.appengine.api import memcache
 from google.appengine.api import users
-from take2index import check_and_store_key
 from take2beans import prepare_birthday_selectors
 
 def write_access(obj, login_user):
-    """Makes sure that me can edit the object
+    """Makes sure that login_user can edit the object
 
     Logs violations.
     Returns true if me has write access.
@@ -36,7 +35,10 @@ def write_access(obj, login_user):
     return True
 
 def get_login_user():
-    """Find the account which represents the currently logged in google user"""
+    """Find the account which represents the currently logged in and authenticated user
+
+    If user is not authenticated, returns None
+    """
 
     authenticated_user = users.get_current_user()
 
@@ -44,22 +46,28 @@ def get_login_user():
         return None
 
     q_me = LoginUser.all()
-    q_me.filter('user_id =', authenticated_user.federated_identity())
+    q_me.filter('user =', authenticated_user)
     me = q_me.fetch(3)
     if len(me) > 0:
         if len(me) > 1:
             logging.critical ("more than one person with google account: %s [%s]" % (authenticated_user.nickname(),authenticated_user.user_id()))
         me = me[0]
     else:
-        logging.error ("No Person registered for login_user")
-        return None
+        logging.warning ("No Person registered for login_user %s" % authenticated_user)
+        logging.warning ("Trying email as user_id instead...")
+        me = LoginUser.all().filter("user_id =", authenticated_user.email()).get()
+        if not me:
+            logging.warning ("Email not recognized either.")
+            return None
+        logging.warning ("Email worked.")
 
     return me
 
 
 def get_current_user_template_values(login_user, page_uri, template_values=None):
-    """Set up a set of template values
-    Helpful for rendering the web page with some basic information about the user.
+    """Put together a set of template values regarding the logged in user.
+
+    Neede for rendering the web page with some basic information about the user.
     """
     if not template_values:
         template_values = {}
@@ -72,6 +80,8 @@ def get_current_user_template_values(login_user, page_uri, template_values=None)
             template_values['loginout_text'] = 'logout %s' % (login_user.me.name)
         else:
             template_values['loginout_text'] = 'logout'
+        if login_user.place:
+            template_values['login_user_place'] = login_user.place
     else:
         template_values['signed_in'] = False
         template_values['loginout_url'] = '/login'

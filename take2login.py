@@ -17,7 +17,9 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import LoginUser, Person, FuzzyDate
 from take2access import get_login_user, get_current_user_template_values
 from take2beans import prepare_birthday_selectors, PersonBean
-from take2index import check_and_store_key
+from take2index import update_index
+
+
 
 class Take2Welcome(webapp.RequestHandler):
     """Opens the page where the user can enter his/her name for the first time
@@ -26,7 +28,8 @@ class Take2Welcome(webapp.RequestHandler):
     def get(self):
         """processes the signup form"""
         authenticated_user = users.get_current_user()
-        login_user = LoginUser.all().filter('user =', authenticated_user).get()
+        login_user = get_login_user()
+
         template_values = get_current_user_template_values(login_user,self.request.uri)
 
         # not logged in
@@ -48,7 +51,7 @@ class Take2Welcome(webapp.RequestHandler):
 def initial_user_setup(auth_user, person):
     """Runs in a single transaction and sets up the LoginUser and its representation as a Person"""
 
-    login_user = LoginUser(user=auth_user, user_id=auth_user.federated_identity(), location=db.GeoPt(0,0))
+    login_user = LoginUser(user=auth_user, user_id=auth_user.email(), location=db.GeoPt(0,0))
     login_user.put()
 
     person.owned_by = login_user
@@ -67,7 +70,7 @@ class Take2Signup(webapp.RequestHandler):
     def get(self):
         """processes the signup form"""
         authenticated_user = users.get_current_user()
-        login_user = LoginUser.all().filter('user_id =', authenticated_user.federated_identity()).get()
+        login_user = get_login_user()
         template_values = get_current_user_template_values(login_user,self.request.uri)
 
         # not logged in
@@ -106,8 +109,7 @@ class Take2Signup(webapp.RequestHandler):
 
         # create search index which is usually done by the PersonBean but not here
         # because the index table is not in the entity group
-        login_user = LoginUser.all().filter("user_id =", authenticated_user.federated_identity()).get()
-        check_and_store_key(login_user.me)
+        update_index(person.entity)
 
         self.redirect('/search')
 

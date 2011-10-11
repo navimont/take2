@@ -25,6 +25,7 @@ class LocationHandler(webapp.RequestHandler):
 
         lat = self.request.get("lat", None)
         lon = self.request.get("lon", None)
+        place = self.request.get("place", None)
         user = self.request.get("user", None)
         # PERMISSION_DENIED (1)
         # POSITION_UNAVAILABLE (2)
@@ -32,10 +33,12 @@ class LocationHandler(webapp.RequestHandler):
         # UNKNOWN_ERROR (0)
         # firefox supports only (1) in case of a permanent denial
         err = self.request.get("err", None)
+        logging.debug("LocationHandler.get() err: %s lat: %s lon: %s place: %s" % (err,lat,lon,place))
 
         if not err:
             login_user.location.lat = float(lat)
             login_user.location.lon = float(lon)
+            login_user.place = place
             login_user.location_timestamp = datetime.now()
             # ask again in an hour
             login_user.ask_geolocation = datetime.now() + timedelta(hours=1)

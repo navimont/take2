@@ -22,7 +22,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from take2dbm import Person, Contact, Take2
 from take2access import MembershipRequired, write_access, visible_contacts
 from take2view import encode_contact
-from take2index import check_and_store_key
+from take2index import update_index
 from take2beans import PersonBean, EmailBean, MobileBean, AddressBean, WebBean, OtherBean
 
 class ContactEdit(webapp.RequestHandler):
@@ -234,6 +234,7 @@ class Attic(webapp.RequestHandler):
 
         contact.attic = True;
         contact.put();
+        update_index(contact)
 
         # if the contact had a backwards refrence, direkt to the middleman
         if contact.middleman_ref:
@@ -261,6 +262,8 @@ class Attic(webapp.RequestHandler):
 
         t2.attic = True;
         t2.put();
+        if t2.class_name() == 'Address':
+            update_index(t2)
 
         self.redirect('/editcontact?key=%s' % str(contact.key()))
 
@@ -289,6 +292,7 @@ class Deattic(webapp.RequestHandler):
 
         contact.attic = False;
         contact.put();
+        update_index(contact)
 
         self.redirect('/editcontact?key=%s' % key)
 
@@ -310,6 +314,8 @@ class Deattic(webapp.RequestHandler):
 
         t2.attic = False;
         t2.put();
+        if t2.class_name() == 'Address':
+            update_index(t2)
 
         self.redirect('/editcontact?key=%s' % str(contact.key()))
 

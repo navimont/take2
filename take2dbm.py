@@ -97,6 +97,8 @@ class LoginUser(GeoModel):
     user_id = db.StringProperty()
     # location attribute comes from parent class and is required
     location_timestamp = db.DateTimeProperty()
+    # the last known place (looked up from location coordinates)
+    place = db.StringProperty()
     # points to the Person which represents this user
     # (can't use the Person qualifier because Person is not defined yet)
     me = db.ReferenceProperty()
@@ -196,6 +198,26 @@ class Other(Take2):
     tag = db.ReferenceProperty(OtherTag)
     # content
     text = db.StringProperty()
+
+class SearchIndex(db.Model):
+    """Combined index for efficient search in
+
+    - name       (name: Contact)
+    - nickname   (nickname: Person)
+    - last name  (lastname: Person)
+    - place      (adr_zoom: Address)
+    """
+    # a plainified version of the words in the original string
+    # (all lower case, ASCII only)
+    keys = db.StringListProperty()
+    # True if entry is marked deleted
+    attic = db.BooleanProperty()
+    # points to the dataset from where the data originates
+    # can be any of Contact, Take2 and their descendants
+    data_ref = db.ReferenceProperty()
+    # pointer to contact
+    contact_ref = db.ReferenceProperty(Contact)
+
 
 class PlainKey(db.Model):
     """An index for quick search in names, last names, nicknames and places
