@@ -50,27 +50,6 @@ class ContactEdit(webapp.RequestHandler):
 
 
 
-
-
-class GeoRef(webapp.RequestHandler):
-    """Geo-Reference my eisting datasets"""
-
-    @MembershipRequired
-    def get(self, login_user=None, template_values={}):
-        instance = self.request.get("instance", "")
-        instance_list = instance.split(",")
-        contact_ref = self.request.get("contact_ref", None)
-
-        logging.debug("Geo Ref")
-
-        # find an address with no georef
-        q_ngr = Address.all().filter("attic =", False)
-        for ngr in q_ngr:
-            if ngr.location.lat == 0.0:
-                if not ngr.contact_ref.attic:
-                    self.redirect('/edit?Address_key=%s&instance=Address&contact_ref=%s' % (str(ngr.key()),str(ngr.contact_ref.key())))
-
-
 class Save(webapp.RequestHandler):
     """Save Contact or Take2 entity
 
@@ -355,7 +334,6 @@ application = webapp.WSGIApplication([('/editcontact', ContactEdit),
                                       ('/save.*', Save),
                                       ('/attic.*', Attic),
                                       ('/deattic.*', Deattic),
-                                      ('/georef', GeoRef),
                                      ],settings.DEBUG)
 
 def main():

@@ -19,7 +19,7 @@ handlers:
 - url: /(index|lookup|indexpurge|fix)
   script: take2index.py
 
-- url: /(new.*|edit.*|save.*|attic.*|deattic.*|georef)
+- url: /(new.*|edit.*|save.*|attic.*|deattic.*)
   script: take2edit.py
   login: required
 
