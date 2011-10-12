@@ -61,6 +61,14 @@ def get_login_user():
             return None
         logging.warning ("Email worked.")
 
+    # Check if login_user has a vaild person attached
+    try:
+        if me.me:
+            logging.debug("Found login user person: %s" % (me.me.name))
+    except db.ReferencePropertyResolveError:
+        logging.critical ("Login user: %s has an invalid reference to Person" % (str(me.key())))
+        return None
+
     return me
 
 
@@ -76,9 +84,9 @@ def get_current_user_template_values(login_user, page_uri, template_values=None)
         template_values['signed_in'] = True
         template_values['login_user_key'] = str(login_user.key())
         template_values['loginout_url'] = users.create_logout_url('/')
-        if login_user.me:
+        try:
             template_values['loginout_text'] = 'logout %s' % (login_user.me.name)
-        else:
+        except db.ReferencePropertyResolveError:
             template_values['loginout_text'] = 'logout'
         if login_user.place:
             template_values['login_user_place'] = login_user.place

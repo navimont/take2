@@ -81,6 +81,10 @@ img::selection 		{background: transparent;}
 img::-moz-selection	{background: transparent;}
 body {-webkit-tap-highlight-color: rgb(255,255,158);}
 
+/*
+* Extensions for take2map: Stefan Wehner (2011)
+*/
+
 html, body, #map-full
 {
     height: 100%;
@@ -136,10 +140,33 @@ body {
 }
 
 #results {
-    height: 100%;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  height: 100%;
 }
+
+.result_marker {
+  height: 34px;
+  float: left;
+}
+
+.result_text {
+  height: 44px;
+  padding-left: 30px;
+}
+
+#exclaimer {
+  padding: 20px;
+  background-color: #FFFF99;
+  border: 1px solid #333333;
+}
+
+#results a:link, #results a:hover, #results a:visited {
+  text-decoration: underline;
+}
+
 
 footer {
   position: absolute;
-  bottom: 10px;
+  bottom: 33px;
 }

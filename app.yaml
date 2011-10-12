@@ -16,10 +16,10 @@ handlers:
 - url: (/login|/_ah/login_required|/welcome|/openid_login|/signup)
   script: take2login.py
 
-- url: /(index|lookup)
+- url: /(index|lookup|indexpurge|fix)
   script: take2index.py
 
-- url: /(new.*|edit.*|save.*|attic.*|deattic.*)
+- url: /(new.*|edit.*|save.*|attic.*|deattic.*|georef)
   script: take2edit.py
   login: required
 
@@ -30,3 +30,6 @@ handlers:
 - url: /share.*
   script: take2share.py
   login: required
+
+- url: /map.*
+  script: take2map.py

@@ -41,7 +41,8 @@ Address-Information
                   }
                   // remove last comma
                   adr_zoom = adr_zoom.replace(/,\s+$/,"")
-                  document.getElementById('adr_zoom').innerHTML = adr_zoom;
+                  document.getElementById('adr_zoom_div').innerHTML = adr_zoom;
+                  document.getElementById('adr_zoom_input').value = adr_zoom;
               }
             } else {
               // in case of error make the button orange
@@ -259,7 +260,8 @@ Address-Information
                 <span class="small"><em>Show on map</em> will not update coordinates.</span>
               </div>
               <div>
-                  <small><span id="adr_zoom">{{adr_zoom}}</span></small>&nbsp;
+                  <input id='adr_zoom_input' type="hidden" name="adr_zoom" value="{{adr_zoom}}">
+                  <small><span id="adr_zoom_div">{{adr_zoom}}</span></small>&nbsp;
               </div>
               <!-- displays map for address lookup -->
               <div id="map_canvas">

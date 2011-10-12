@@ -40,6 +40,7 @@ or updated or deleted.
 * (++)  ldap interface for mail addresses
 * (+)   Unsubscribe
 * (++)  Export data for christmas card lists or other meetups
+*       Complete delete as a second stage after attic
 
 *** Development process
 
@@ -52,11 +53,8 @@ https://appengine.google.com/
 * appengine link
 http://take2nitz.appspot.com/
 
-*** History
-
-I have two appspots
-- take2wesch for the application using a high replication datastore and
-- take2nitz which uses master/slave
+- In the javascript source openid-jquery.js the image path needs to be adapted:
+	img_path : '/static/openid/images/',
 
 
 *** Resources
@@ -98,6 +96,7 @@ http://plugins.jquery.com/project/OpenId
 # Google Maps Javascript API
 http://code.google.com/apis/maps/documentation/javascript/
 
-- In the javascript source openid-jquery.js the image path needs to be adapted:
-	img_path : '/static/openid/images/',
+# Git
+http://book.git-scm.com/index.html
+
 

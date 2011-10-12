@@ -1,4 +1,8 @@
-"""Take2 Database scheme"""
+"""Take2 Database scheme
+
+
+  Stefan Wehner (2011)
+"""
 
 from google.appengine.ext import db
 from google.appengine.ext.db import polymodel
@@ -84,7 +88,7 @@ class FuzzyDateProperty(db.Property):
     def empty(self, value):
         return not value
 
-class LoginUser(GeoModel):
+class LoginUser(db.Model):
     """A user instance (connects with one google account)
 
     It supports geospatial queries with the help of GeoModel
@@ -95,7 +99,8 @@ class LoginUser(GeoModel):
     # a duplicate, I do save user.federated_identity to this
     # field because a query with a yahoo identity fails on user
     user_id = db.StringProperty()
-    # location attribute comes from parent class and is required
+    # store user's current location (from browser geolookup)
+    location = db.GeoPtProperty()
     location_timestamp = db.DateTimeProperty()
     # the last known place (looked up from location coordinates)
     place = db.StringProperty()
@@ -218,20 +223,25 @@ class SearchIndex(db.Model):
     # pointer to contact
     contact_ref = db.ReferenceProperty(Contact)
 
-
-class PlainKey(db.Model):
-    """An index for quick search in names, last names, nicknames and places
-
-    Entries in this index are all lower case and they do not accents or special
-    characters.
+class GeoIndex(GeoModel):
+    """Indexes the location fields in LoginUser and Address datasets
+    for a quick location based search (supported by parent class)
     """
-    plain_key = db.StringProperty()
 
-class ContactIndex(db.Model):
-    """Is used to connect entries in the Lookup class with Person or Company entities"""
+    # location property is defined in parent class
+    # location = db.GeoPtProperty(required=True)
+    # location_geocells is defined in parent class and used for quick geo queries
+    # location_geocells = db.StringListProperty()
+    # needs to be updated before every put. Call update_location() on the class
 
-    plain_key_ref = db.ReferenceProperty(PlainKey)
+    # True if entry is marked deleted
+    attic = db.BooleanProperty()
+    # points to the dataset from where the data originates
+    # can be any of Contact, Take2 and their descendants
+    data_ref = db.ReferenceProperty()
+    # pointer to contact
     contact_ref = db.ReferenceProperty(Contact)
+
 
 class SharedTake2(polymodel.PolyModel):
     """Holds a list of take2 properties which may be seen by the public or friends"""

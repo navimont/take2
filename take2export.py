@@ -15,7 +15,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import taskqueue
 from google.appengine.api import memcache
 from take2dbm import Contact, Person, Company, Take2, FuzzyDate, LoginUser, OtherTag
-from take2dbm import Email, Address, Mobile, Web, Other, Country, PlainKey, ContactIndex
+from take2dbm import Email, Address, Mobile, Web, Other, Country
 from take2access import get_current_user_template_values, visible_contacts, get_login_user
 
 def encode_take2(contact, include_attic=False):
@@ -308,7 +308,7 @@ class Take2ImportTask(webapp.RequestHandler):
             q_t = db.Query(Take2,keys_only=True)
             q_t.filter("contact_ref =", c)
             db.delete(q_t)
-            q_i = db.Query(ContactIndex,keys_only=True)
+            q_i = db.Query(Search,keys_only=True)
             q_i.filter("contact_ref =", c)
             db.delete(q_i)
             count = count +1

@@ -5,10 +5,11 @@
 import settings
 import logging
 import os
+import random
 import calendar
 from google.appengine.ext import db
-from take2dbm import Contact, Person, Company, Take2, FuzzyDate, ContactIndex, PlainKey
-from take2dbm import Email, Address, Mobile, Web, Other, Country, SharedTake2
+from take2dbm import Contact, Person, Company, Take2, FuzzyDate
+from take2dbm import Email, Address, Mobile, Web, Other, Country, SharedTake2, GeoIndex
 from take2access import visible_contacts
 
 class Take2Overview(object):
@@ -93,7 +94,7 @@ class ContactView():
         self.attic = contact.attic
         self.key = str(contact.key())
         self.class_name = contact.class_name()
-        self.affix = Take2Overview('Contacts, Family & Friends','Person')
+        self.affix = Take2Overview('People living in the same household','Person')
         self.email = Take2Overview('Email','Email')
         self.mobile = Take2Overview('Mobile Phone','Mobile')
         self.web = Take2Overview('Web site','Web')
@@ -205,6 +206,7 @@ def encode_contact(contact, login_user, include_attic=False, include_privacy=Fal
                         obj.privacy = 'restricted'
             result.append_take2(obj)
     else:
+        result.relation = "(You cannot see this person's data.)"
         # user does not own the contact, but let's check whether the privacy settings
         # allow us to see something
         q_priv = SharedTake2.all().filter("contact_ref =", contact)
@@ -216,7 +218,82 @@ def encode_contact(contact, login_user, include_attic=False, include_privacy=Fal
                 if obj.attic and not include_attic:
                     continue
                 result.append_take2(obj)
+                result.relation = "(This person shares some data.)"
 
 
     return result
 
+
+def geocode_contact(contact, login_user, include_attic=False, include_privacy=False):
+    """Encode data as a GeoJSON feature dictionary structure
+
+    The function takes into account the access rights and encodes only elements
+    which the user is allowed to see.
+    signed_in is set to True if the user is signed in
+    If include_attic=True, data will include the complete history and also archived data.
+    """
+
+    features = []
+
+    # lookup coordinates for this point
+    q_geo = GeoIndex.all()
+    q_geo.filter("contact_ref =", contact)
+    if not include_attic:
+        q_geo.filter("attic =", False)
+    for geo in q_geo:
+        if geo.location.lat != 0.0 and geo.location.lon != 0.0:
+            feature = {}
+            feature['type'] = "Feature"
+            # make position worse if user is not logged in or does not have access rights
+            random.seed(contact.key().id_or_name())
+            if login_user:
+                if login_user.me.key() == contact.key():
+                    mlat = 0.0
+                    mlon = 0.0
+                else:
+                    margin = 0.005
+                    mlat = random.random()*margin+0.5*margin
+                    mlon = random.random()*margin+0.5*margin
+            else:
+                margin = 0.02
+                mlat = random.random()*margin+0.5*margin
+                mlon = random.random()*margin+0.5*margin
+            feature['geometry'] = {"type": "Point", "coordinates": [geo.location.lon+mlon,geo.location.lat+mlat]}
+            properties = {}
+            properties['name'] = contact.name
+            properties['key'] = str(contact.key())
+            if login_user and contact.class_name() == 'Person':
+                properties['lastname'] = contact.lastname
+            else:
+                properties['lastname'] = ""
+            # For Addresses add place information
+            if geo.data_ref.key().kind() == 'Take2' and geo.data_ref.class_name() == 'Address':
+                properties['place'] = ", ".join(geo.data_ref.adr_zoom[:2])
+            else:
+                properties['place'] = "(last known standpoint)"
+            properties['style'] = {   'color': "#004070",
+                                      'weight': 4,
+                                      'opacity': 0.9
+                                  }
+            properties["popupContent"] = contact.name
+            feature['properties'] = properties
+            features.append(feature)
+
+    if not features:
+        # no geodata available for this contact. Encode it simply without
+            feature = {}
+            feature['type'] = "Feature"
+            properties = {}
+            properties['name'] = contact.name
+            properties['key'] = str(contact.key())
+            properties['place'] = ""
+            # this will be filtered out on the client side
+            feature['geometry'] = {"type": "Point", "coordinates": [0.0,0.0]}
+            if login_user and contact.class_name() == 'Person':
+                properties['lastname'] = contact.lastname
+            else:
+                properties['lastname'] = ""
+            feature['properties'] = properties
+            features.append(feature)
+
+    return features

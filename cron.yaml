@@ -1,4 +1,4 @@
 cron:
 - description: update principal contact index
   url: /index
-  schedule: every 2 hours
+  schedule: every 60 hours

@@ -19,7 +19,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
-from take2dbm import Person, Contact, Take2
+from take2dbm import Person, Contact, Take2, Address
 from take2access import MembershipRequired, write_access, visible_contacts
 from take2view import encode_contact
 from take2index import update_index
@@ -48,6 +48,27 @@ class ContactEdit(webapp.RequestHandler):
         path = os.path.join(os.path.dirname(__file__), 'take2edit.html')
         self.response.out.write(template.render(path, template_values))
 
+
+
+
+
+class GeoRef(webapp.RequestHandler):
+    """Geo-Reference my eisting datasets"""
+
+    @MembershipRequired
+    def get(self, login_user=None, template_values={}):
+        instance = self.request.get("instance", "")
+        instance_list = instance.split(",")
+        contact_ref = self.request.get("contact_ref", None)
+
+        logging.debug("Geo Ref")
+
+        # find an address with no georef
+        q_ngr = Address.all().filter("attic =", False)
+        for ngr in q_ngr:
+            if ngr.location.lat == 0.0:
+                if not ngr.contact_ref.attic:
+                    self.redirect('/edit?Address_key=%s&instance=Address&contact_ref=%s' % (str(ngr.key()),str(ngr.contact_ref.key())))
 
 
 class Save(webapp.RequestHandler):
@@ -125,7 +146,6 @@ class Save(webapp.RequestHandler):
         self.redirect('/editcontact?key=%s' % str(contact.key()))
 
 
-
 class New(webapp.RequestHandler):
     """New property or contact"""
 
@@ -184,7 +204,7 @@ class Edit(webapp.RequestHandler):
 
         # contact_ref points to the person to which the take2 entries in this form
         # belong to.
-        assert contact_ref, "No contact_ref received."
+        assert contact_ref, "No contact_ref / key received."
 
         contact = Contact.get(contact_ref)
         # access rights check
@@ -335,6 +355,7 @@ application = webapp.WSGIApplication([('/editcontact', ContactEdit),
                                       ('/save.*', Save),
                                       ('/attic.*', Attic),
                                       ('/deattic.*', Deattic),
+                                      ('/georef', GeoRef),
                                      ],settings.DEBUG)
 
 def main():

@@ -14,7 +14,7 @@
     <!-- <link rel="shortcut icon" href=""> -->
 
     <!-- Stylesheets -->
-		<link rel="stylesheet" media="all" href="/static/map.css"/>
+		<link rel="stylesheet" media="all" href="/static/take2map.css"/>
     <link rel="stylesheet" href="/static/leaflet/leaflet.css" />
     <!--[if lte IE 8]><link rel="stylesheet" href="/static/leaflet/leaflet.ie.css" /><![endif]-->
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
@@ -24,47 +24,42 @@
   <body lang="en" id="full-map">
     <!-- Leaflet JavaScript -->
     <script src="/static/leaflet/leaflet.js"></script>
-    <script type="text/javascript">
-        function run()
-        {
-            var map = new L.Map('map-full');
-            var cloudmadeUrl = 'http://{s}.tile.cloudmade.com/469e39eb2d01411b9f2576eb809346dd/997/256/{z}/{x}/{y}.png',
-            cloudmadeAttrib = 'Map data &copy; 2011 OpenStreetMap contributors, Imagery &copy; 2011 CloudMade',
-            cloudmade = new L.TileLayer(cloudmadeUrl, {maxZoom: 18, attribution: cloudmadeAttrib});
-            // geographical point (longitude and latitude)
-            map.setView(new L.LatLng(39.747, -105), 14).addLayer(cloudmade);
-            //geojsonLayer.addGeoJSON(geojsonFeature);
-            //map.addLayer(geojsonLayer);
-        }
-        window.onload=run;
-    </script>
+    <script src="/static/take2map.js"></script>
 
-    <form name="mapsearch" action="/mapsearch" method="GET">
-        <div id="map-siding">
-            <div id="loginout">
-                <h4><a href="{{loginout_url}}">{{loginout_text}}</a></h4>
-            </div>
-            <div id="login_user_place">
-                <h4>{{ login_user_place }}</h4>
-            </div>
-            <div id="weschnitz">
-                <h1>Weschnitz</h1>
-            </div>
-            <div id="weschnitz_subtitle">
-                Your online address book.
-            </div>
-            <div id="searchbox">
-                <input type="text" name="query" value="{{ query|escape }}" autocomplete="off">
-            </div>
-            <div id="results">
-            </div>
-            <footer>
-                <h4><a href="/search">go to textbased layout</a></h4>
-            </footer>
+    <!-- used by take2map.js -->
+    <input id="link_type_to_person" type="hidden" value="{% if signed_in %}editcontact{% else %}search{% endif %}">
+
+    <div id="map-siding">
+        <div id="loginout">
+            <h4><a href="{{loginout_url}}">{{loginout_text}}</a></h4>
         </div>
-    </form>
+        <div id="login_user_place">
+            <h4>{{ login_user_place }}</h4>
+        </div>
+        <div id="weschnitz">
+            <h1>Weschnitz</h1>
+        </div>
+        <div id="weschnitz_subtitle">
+            Your online address book.
+        </div>
+        <div id="searchbox">
+            <input id="searchinput" type="text" name="query" value="{{ query|escape }}" autocomplete="off" placeholder="search a name"  onkeypress="t2map_delayed_req();">
+        </div>
+        <div id="results">
+        </div>
+        <div id="exclaimer">
+            <h4>This page is under development. Please forgive occasional dropouts and check frequently for new features!</h4>
+            <h4><strong>Note:</strong> marker positions are approximate only for anonymous users.</h4>
+        </div>
+        <footer>
+            <h4><a href="/search">go to textbased layout</a></h4>
+        </footer>
+    </div>
     <div id="map-full">
     </div>
+    <script type="text/javascript">
+            window.onload=t2map_run;
+    </script>
   </body>
 </html>
 

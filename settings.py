@@ -23,7 +23,7 @@ PRIVACY = {0: "private", 1: "restricted", 2: "public"}
 CONTACT_INDEX_REFRESH = 300
 
 # number of serach results to be displayed on one page
-RESULT_SIZE = 10
+RESULT_SIZE = 8
 
 COUNTRIES = [{"US":"United States"},
 {"CA":"Canada"},

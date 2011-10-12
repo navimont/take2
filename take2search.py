@@ -2,6 +2,9 @@
 
 Supports searches for Contacts
 Maintains a quick contact index table for simplified search and autocompletion
+
+    Stefan Wehner (2011)
+
 """
 
 import settings
@@ -16,7 +19,7 @@ from google.appengine.ext.db import Key
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import memcache
-from take2dbm import Contact, Person, Company, Take2, FuzzyDate, ContactIndex, PlainKey
+from take2dbm import Contact, Person, Company, Take2, FuzzyDate
 from take2dbm import Email, Address, Mobile, Web, Other, Country
 from take2access import get_login_user, get_current_user_template_values, MembershipRequired, visible_contacts
 from take2index import lookup_contacts
@@ -61,6 +64,11 @@ def upcoming_birthdays(login_user):
             res.append(jubilee)
     return res
 
+class Take2Root(webapp.RequestHandler):
+    """Redirect to start page"""
+
+    def get(self):
+        self.redirect('/map')
 
 
 class Take2Search(webapp.RequestHandler):
@@ -113,8 +121,15 @@ class Take2Search(webapp.RequestHandler):
                 template_values['result_size'] = len(last['results'])
                 template_values['query'] = last['query']
                 for contact in db.get(last['results'][last['offset']:settings.RESULT_SIZE]):
-                    con = encode_contact(contact, include_attic=include_attic, login_user=login_user)
-                    result.append(con)
+                    if not contact:
+                        # may happen if index is not up to date
+                        logging.warning("Query returned invalid contact reference")
+                        continue
+                    try:
+                        con = encode_contact(contact, include_attic=include_attic, login_user=login_user)
+                        result.append(con)
+                    except db.ReferencePropertyResolveError:
+                        logging.critical("AttributeError while encoding")
 
         #
         # key is given
@@ -123,8 +138,11 @@ class Take2Search(webapp.RequestHandler):
         if contact_key:
             contact = Contact.get(contact_key)
             # this is basically a db dump
-            con = encode_contact(contact, include_attic=include_attic, login_user=login_user)
-            result.append(con)
+            try:
+                con = encode_contact(contact, include_attic=include_attic, login_user=login_user)
+                result.append(con)
+            except db.ReferencePropertyResolveError:
+                logging.critical("AttributeError while encoding")
 
         #
         # query search
@@ -141,23 +159,24 @@ class Take2Search(webapp.RequestHandler):
             template_values['result_size'] = len(cis)
             template_values['query'] = query
             for contact in db.get(cis[0:settings.RESULT_SIZE]):
-                # I did not understand why but there was once a key without object coming up
-                if contact:
+                if not contact:
+                    logging.warning("Query returned invalid contact reference")
+                    continue
+                try:
                     con = encode_contact(contact, include_attic=include_attic, login_user=login_user)
                     result.append(con)
+                except db.ReferencePropertyResolveError:
+                    logging.critical("AttributeError while encoding")
 
         elif len(result) == 0:
             # display current user data
             if login_user and login_user.me:
-                try:
-                    con = encode_contact(login_user.me, include_attic=include_attic, login_user=login_user)
-                    result.append(con)
-                    # check if the poor guy just started
-                    if not con.mobile.has_data and not con.address.has_data:
-                        template_values['new_customer'] = True
-                        template_values['new_customer_key'] = str(login_user.me.key())
-                except AttributeError:
-                    logging.critical("AttributeError while encoding")
+                con = encode_contact(login_user.me, include_attic=include_attic, login_user=login_user)
+                result.append(con)
+                # check if the poor guy just started
+                if not con.mobile.has_data and not con.address.has_data:
+                    template_values['new_customer'] = True
+                    template_values['new_customer_key'] = str(login_user.me.key())
 
 
         #
@@ -179,7 +198,7 @@ class Take2Search(webapp.RequestHandler):
 
 
 
-application = webapp.WSGIApplication([('/', Take2Search),
+application = webapp.WSGIApplication([('/', Take2Root),
                                       ('/search.*', Take2Search),
                                       ],debug=settings.DEBUG)
 

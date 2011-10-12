@@ -1,5 +1,7 @@
 """Take2 buld quick search index to find a contact by its name, location, nickname etc.
 
+    Stefan Wehner (2011)
+
 """
 
 import settings
@@ -15,7 +17,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.db import Key
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import memcache
-from take2dbm import Contact, Person, Company, Take2, SearchIndex, Address
+from take2dbm import Contact, Person, Company, Take2, SearchIndex, Address, GeoIndex, LoginUser
 
 def plainify(string):
     """Removes all accents and special characters form string and converts
@@ -40,7 +42,8 @@ def plainify(string):
 
 
 def update_index(obj, batch=False):
-    """Updates obj-related keywords for the contact to which obj belongs
+    """Updates SearchIndex and GeoIndex tables with obj-related keywords
+    and locations for the contact to which obj belongs.
 
     If obj indices are already in the SearchIndex, their content is updated.
     If obj is new, it is added.
@@ -54,9 +57,17 @@ def update_index(obj, batch=False):
     #
     # generate the keys and find the contact reference
     #
-    new_keys = []
+    new_keys = None
+    new_location = None
     contact_ref = None
-    if obj.class_name() in ['Person','Contact','Company']:
+    attic = False
+    res = []
+    try:
+        obj_class = obj.class_name()
+    except AttributeError:
+        # for non poly model objects
+        obj_class = obj.key().kind()
+    if obj_class in ['Person','Contact','Company']:
         contact = obj
         new_keys = plainify(contact.name)
         if contact.class_name() == "Person":
@@ -64,48 +75,129 @@ def update_index(obj, batch=False):
                 new_keys.extend(plainify(contact.lastname))
             if contact.nickname:
                 new_keys.extend(plainify(contact.nickname))
-    elif obj.class_name() in ['Address']:
-        contact = obj.contact_ref
-        # use the last two elements as search keys (should be town and neighborhood or similar)
-        new_keys = plainify(" ".join(obj.adr_zoom[-2:]))
+        attic = obj.attic or contact.attic
+    elif obj_class in ['Address']:
+        try:
+            contact = obj.contact_ref
+        except db.ReferencePropertyResolveError:
+            logging.warning("Address has invalid reference to contact %s" % (str(obj.key())))
+            return None
+        # use the elements as search keys (should be town and neighborhood or similar)
+        new_keys = plainify(" ".join(obj.adr_zoom[:2]))
+        if obj.location:
+            new_location = obj.location
+        attic = obj.attic or contact.attic
+    elif obj_class in ['LoginUser']:
+        try:
+            contact = obj.me
+        except db.ReferencePropertyResolveError:
+            logging.warning("Address has invalid reference to contact %s" % (str(obj.key())))
+            return None
+        if obj.location:
+            new_location = obj.location
     else:
-        logging.warning("update_index(): class %s is not considered here" % (obj.class_name()))
+        logging.debug("update_index(): class %s is not considered here" % (obj_class))
+        return None
 
-    logging.debug("Update %s with keys: %s" % (contact.name,new_keys))
+    if new_location:
+        logging.debug("Update %s class %s with location: %f %f" % (contact.name,obj_class,new_location.lat,new_location.lon))
+    if new_keys:
+        logging.debug("Update %s class %s with keys: %s" % (contact.name,obj_class,new_keys))
 
-    # read all index datasets with reference to obj
-    data = SearchIndex.all().filter("data_ref =", obj).get()
-    if data:
-        # update existing dataset
-        data.keys = new_keys
-        data.attic = obj.attic or contact.attic
-    elif new_keys:
-        data = SearchIndex(keys=new_keys, attic=(obj.attic or contact.attic),
-                            data_ref=obj, contact_ref=contact)
-    else:
-        # nothing to be indexed
-        pass
+    if new_keys:
+        # read SearchIndex dataset with reference to obj
+        data = SearchIndex.all().filter("data_ref =", obj).get()
+        if data:
+            # update existing dataset
+            data.keys = new_keys
+            data.attic = attic
+        else:
+            if batch:
+                logging.warning("A new search index was created in batch for dataset: %d" % (obj.key().id()))
+            data = SearchIndex(keys=new_keys, attic=attic,
+                                data_ref=obj, contact_ref=contact)
+        if batch:
+            res.append(data)
+        else:
+            data.put()
 
-    if batch:
-        return data
-    else:
-        data.put()
+    if new_location:
+        # read GeoIndex dataset with reference to obj
+        geo = GeoIndex.all().filter("data_ref =", obj).get()
+        if geo:
+            # update existing dataset
+            geo.location = new_location
+            geo.attic = attic
+            # update geo reference field
+            geo.update_location()
+        else:
+            if batch:
+                logging.warning("A new geo index was created in batch for dataset: %d" % (obj.key().id()))
+            geo = GeoIndex(location=new_location, attic=attic,
+                           data_ref=obj, contact_ref=contact)
+            geo.update_location()
+        if batch:
+            res.append(geo)
+        else:
+            geo.put()
 
+    return res
 
-class UpdateContactIndex(webapp.RequestHandler):
-    """Used by task queue or cron job"""
+class PurgeIndex(webapp.RequestHandler):
+    """Used by administrator"""
 
     def get(self):
-        """Function is called by cron to build a contact index DB table
+        if not users.is_current_user_admin():
+            logging.critical("PurgeIndex called by non-admin")
+            self.error(500)
+            return
+
+        logging.info("Purge index tables.")
+
+        alldata = []
+        for data in SearchIndex.all():
+            alldata.append(data.key())
+        db.delete(alldata)
+        logging.info("%d datasets deleted in SearchIndex." % (len(alldata)))
+
+        alldata = []
+        for data in GeoIndex.all():
+            alldata.append(data.key())
+        db.delete(alldata)
+        logging.info("%d datasets deleted in GeoIndex." % (len(alldata)))
+
+        self.response.headers['Content-Type'] = "text/plain"
+        self.response.out.write("/indexpurge done.")
+
+
+class UpdateIndex(webapp.RequestHandler):
+    """Used by admin or cron job"""
+
+    def get(self):
+        """Function is called by cron to build a contact index
 
         Call with a key to build index for this entity.
         """
+        if not users.is_current_user_admin():
+            logging.critical("UpdateIndex called by non-admin")
+            self.error(500)
+            return
+
         key = self.request.get("key", None)
+
+        logging.info("Update index tables.")
 
         if key:
             con = Contact.get(Key(key))
             if con:
                 update_index(con)
+                # update dependant take2 entries
+                for t2 in Take2.all().filter("contact_ref =", con):
+                    update_index(t2)
+                # update parent login_user
+                user = LoginUser.all().filter("me =", con).get()
+                if user:
+                    update_index(user)
                 return
             else:
                 t2 = Take2.get(Key(key))
@@ -115,30 +207,20 @@ class UpdateContactIndex(webapp.RequestHandler):
             logging.info("Could not find key: %s" % (key))
             return
 
-        logging.info("Time to update contact index")
+        # Go through the tables which contribute to the index
+        for table in [LoginUser,Contact,Address]:
+            batch = []
+            for obj in table.all():
+                res = update_index(obj, batch=True)
+                if res:
+                    batch.extend(res)
 
-        # Update data in contact tables, latest first
-        res = []
-        for con in Contact.all():
-            data = update_index(con, batch=True)
-            if data:
-                res.append(data)
+            # bulk db operation
+            db.put(batch)
+            logging.info("%d updates." % (len(batch)))
 
-        # bulk db operation
-        db.put(res)
-        logging.info("Contact index up to date: %d updated." % (len(res)))
-
-        # Update data in contact tables, latest first
-        res = []
-        for adr in Address.all():
-            data = update_index(adr, batch=True)
-            if data:
-                res.append(data)
-
-        # bulk db operation
-        db.put(res)
-        logging.info("Town index up to date: %d updates." % (len(res)))
-
+        self.response.headers['Content-Type'] = "text/plain"
+        self.response.out.write("/index done.")
 
 def lookup_contacts(term, include_attic=False):
     """Lookup function for search term.
@@ -183,7 +265,17 @@ class LookupNames(webapp.RequestHandler):
     """Quick lookup for search field autocompletion"""
 
     def get(self):
-        """Receives a query parameter and returns keywords that fit the query"""
+        """Receives a query parameter and returns keywords that fit the query
+
+        If the query consists of more than one word, the query string
+        is split and only the last word in the query string is used to
+        lookup matches.
+
+        Example:
+        'di' yields ['Dirk', 'Dieter', 'Diesbach']
+        with more than one wordm the first  is simply returned in the result list
+        'dieter h' yields ['dieter', 'Herbert', 'Hoheisel', 'Holdenbusch']
+        """
         term = self.request.get('term',"")
         queries = plainify(term)
 
@@ -213,10 +305,125 @@ class LookupNames(webapp.RequestHandler):
         self.response.headers['Content-Type'] = "text/plain"
         self.response.out.write(json.dumps(res))
 
+class FixDb(webapp.RequestHandler):
+    """Checks for currupt refeferences
+
+    If fix=True it will delete the corrupted datasets
+    """
+
+    def get(self):
+        if not users.is_current_user_admin():
+            logging.critical("UpdateIndex called by non-admin")
+            self.error(500)
+            return
+
+        fix = True if self.request.get("fix", "False") == "True" else False
+
+        # look for LoginUser with invalid Person attached
+        logging.info("Check LoginUser")
+        err = False
+        for obj in LoginUser.all():
+            try:
+                if not obj.me:
+                    logging.critical("LoginUser %d has no Person attached" % ((obj.key().id())))
+                    err = True
+            except db.ReferencePropertyResolveError:
+                logging.critical("LoginUser %d has invalid Person reference" % ((obj.key().id())))
+                err = True
+            if err:
+                # check for dependent datasets
+                count = Contact.all().filter("owned_by =", obj).count()
+                logging.critical("LoginUser %d has %d dependant datasets" % (obj.key().id(),count))
+                if fix:
+                    obj.delete()
+                    logging.info("%d deleted" % obj.key().id())
+            err = False
+
+
+        logging.info("Check Contact")
+        err = False
+        for obj in Contact.all():
+            try:
+                if not obj.owned_by:
+                    logging.critical("Contact '%s' %d has no reference to owner" % (obj.name,obj.key().id()))
+                    err = True
+            except db.ReferencePropertyResolveError:
+                logging.critical("Contact '%s' %d has invalid reference to owner" % (obj.name,obj.key().id()))
+                count = LoginUser.all().filter("me =", obj).count()
+                if count:
+                    logging.critical("... but owner has reference!")
+                err = True
+            if err:
+                # check for dependent datasets
+                count = Take2.all().filter("contact_ref =", obj).count()
+                logging.critical("Contact '%s' has %d dependent datasets" % (obj.name, count))
+                if fix:
+                    obj.delete()
+                    logging.info("%d deleted" % obj.key().id())
+            err = False
+
+        logging.info("Check Take2")
+        err = False
+        for obj in Take2.all():
+            try:
+                if not obj.contact_ref:
+                    logging.critical("Take2 has no reference to owner %s" % (obj.key().id()))
+                    err = True
+            except db.ReferencePropertyResolveError:
+                logging.critical("Take2 has invalid reference to owner %s" % (obj.key().id()))
+                err = True
+            if err:
+                if fix:
+                    obj.delete()
+                    logging.info("%d deleted" % obj.key().id())
+            # location in address shall be set to default
+            if obj.class_name() == 'Address' and not obj.location:
+                logging.error("Address has null location %s. Fixed." % (obj.key().id()))
+                obj.location=db.GeoPt(lon=0.0, lat=0.0)
+                obj.put()
+            err = False
+
+        logging.info("Check SearchIndex")
+        err = False
+        for obj in SearchIndex.all():
+            try:
+                if not obj.contact_ref:
+                    logging.critical("SearchIndex %d has no reference to owner" % (obj.key().id()))
+                    err = True
+            except db.ReferencePropertyResolveError:
+                logging.critical("SearchIndex %d has invalid reference to owner" % (obj.key().id()))
+                err = True
+            if err:
+                if fix:
+                    obj.delete()
+                    logging.info("%d deleted" % obj.key().id())
+            err = False
+
+        logging.info("Check GeoIndex")
+        err = False
+        for obj in GeoIndex.all():
+            try:
+                if not obj.contact_ref:
+                    logging.critical("GeoIndex %d has no reference to owner" % (obj.key().id()))
+                    err = True
+            except db.ReferencePropertyResolveError:
+                logging.critical("GeoIndex %d has invalid reference to owner" % (obj.key().id()))
+                err = True
+            if err:
+                if fix:
+                    obj.delete()
+                    logging.info("%d deleted" % obj.key().id())
+            err = False
+
+        self.response.headers['Content-Type'] = "text/plain"
+        self.response.out.write("/fix done.")
+
 
 
 application = webapp.WSGIApplication([('/lookup', LookupNames),
-                                      ('/index', UpdateContactIndex),
+                                      ('/index', UpdateIndex),
+                                      ('/indexpurge', PurgeIndex),
+                                      ('/fix', FixDb),
                                       ],settings.DEBUG)
 
 def main():

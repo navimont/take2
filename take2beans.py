@@ -1,4 +1,8 @@
-"""Bean classes representing the business objects handled by the RequestHandlers"""
+"""Bean classes representing the business objects handled by the RequestHandlers
+
+
+    Stefan Wehner (2011)
+"""
 
 import settings
 import logging
@@ -446,7 +450,7 @@ class AddressBean(Take2Bean):
         self.lon = 0.0
         self.lat = 0.0
         self.map_zoom = 8
-        self.adr_zoom = ""
+        self.adr_zoom = []
 
     def validate(self):
         adr = "".join(self.adr)
@@ -464,7 +468,7 @@ class AddressBean(Take2Bean):
         self.template_values['lon'] = self.lon
         self.template_values['location_lock'] = self.location_lock
         self.template_values['map_zoom'] = str(self.map_zoom)
-        if self.adr_zoom and len(self.adr_zoom) > 0:
+        if self.adr_zoom:
             self.template_values['adr_zoom'] = ", ".join(self.adr_zoom)
         self.template_values['landlist'] = prepare_list_of_countries()
         return self.template_values
