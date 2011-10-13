@@ -1,6 +1,7 @@
-{% extends "take2baseclass.html" %}
+{% extends "take2base.html" %}
 
 {% block content %}
+  <div id="content">
     <script type="text/javascript">
         $(document).ready(function() {
 
@@ -23,20 +24,8 @@
     </header>
 
 
-    <article id="results">
-      <header style="padding: 10px 0px 10px 0px;">
-        <aside class="contact_edit">
-          {% if contact.attic %}
-              <!-- Undelete the contact (Person, Company) -->
-              <a href="javascript:post_to_url('/deattic', {'instance': '{{contact.class_name}}', 'key': '{{contact.key}}' } );">Undelete</a>
-          {% else %}
-              <!-- Delete (attic) the contact -->
-              <a href="javascript:void(0)" onClick="post_to_url('/attic', {'instance': '{{contact.class_name}}', 'key': '{{contact.key}}'});">Delete</a>
-          {% endif %}
-        </aside>
-        <aside class="back_button">
-            <a href="/search?last=True">Back to search results</a>
-        </aside>
+    <article id="contact">
+      <header>
         <h2>
            <!-- edit the contact itself (Person, Company)-->
           <a href="javascript:void(0)" onClick="post_to_url('/edit', {'instance': '{{contact.class_name}}', '{{contact.class_name}}_key': '{{contact.key}}', 'contact_ref': '{{contact.key}}'});">
@@ -53,16 +42,16 @@
         <h3>
           {{contact.relation}}
           {% if contact.middleman_ref %}
-            <!-- Link tho the edit main page for the referenced contact -->
+            <!-- Link to the edit main page for the referenced contact -->
             (related through <a href="/editcontact?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
           {% endif %}
         </h3>
       </header>
+      <div class="vertical-space"></div>
       <!-- properties for this contact -->
       {% for take2 in contact.take2 %}
         <div class="take2_section">
           <div class="take2_header">
-            {% if take2.class_name != 'Person' and  take2.class_name != 'Contact' %}
               <div>
                 <h3>
                     <!-- A new instance of a take2 class -->
@@ -73,12 +62,10 @@
               {% if take2.has_attic %}
                 <!-- toggle the visibility of deleted entries -->
                 <a class="take2_header_toggle" href="javascript:void(0)" title="show/hide deleted items">
-                    <img class="take2_header_icon" src="/static/icon-undelete.png" alt="New">
+                    <img class="take2_header_icon" src="/static/icon-undelete.png" alt="show/hide deleted items">
                 </a>
               {% endif %}
-            </div>
-            <div class="vertical-space"></div>
-          {% endif %}
+          </div> <!-- take2_header -->
           <ul>
             {% for data in take2.data %}
               {% if data.attic %}
@@ -86,15 +73,6 @@
               {% else %}
                 <div class="take2_data">
               {% endif %}
-                <aside class="contact_edit">
-                  {% if data.attic %}
-                    <!-- Undelete a take2 property -->
-                    <a href="javascript:post_to_url('/deattic', {'instance': '{{data.class_name}}', 'key': '{{data.key}}' } );">Undelete</a>
-                  {% else %}
-                    <!-- delete (attic) a take2 property -->
-                    <a href="javascript:void(0)" onClick="post_to_url('/attic', {'instance': '{{data.class_name}}', 'key': '{{data.key}}'});">Delete</a>
-                  {% endif %}
-                </aside>
                 <li>
                   {% if data.class_name == 'Person' %}
                     <!-- The contacts of the contact on display. Go to this persons main edit page, not directly into the form -->
@@ -113,4 +91,5 @@
         </div> <!-- take2_section -->
       {% endfor %}
     </article>
+  </div>
 {% endblock %}

@@ -1,10 +1,7 @@
-{% extends "take2baseclass.html" %}
-
-{% block title %}
-Address-Information
-{% endblock %}
+{% extends "take2base.html" %}
 
 {% block content %}
+  <div id="content">
     <script type="text/javascript">
         var map;
         var geocoder;
@@ -12,7 +9,7 @@ Address-Information
 
         function geocoder_cb(results, status) {
             if (status == google.maps.GeocoderStatus.OK) {
-              document.getElementById("map_lookup_button").style.backgroundColor = "#30C090";
+              document.getElementById("map_lookup_button").style.backgroundColor = "#668CFF";
               // center the map
               map.setCenter(results[0].geometry.location);
               // and set to the right bounds
@@ -54,8 +51,7 @@ Address-Information
             var adr = document.getElementById("adr_text").value;
             // replace newlines by " "
             adr = adr.replace(/\n/g," ")
-            var country = document.getElementById("country_text").value;
-            geocoder.geocode( { 'address': adr+" "+country }, geocoder_cb);
+            geocoder.geocode( { 'address': adr }, geocoder_cb);
         }
 
         function loadMapScript() {
@@ -104,9 +100,6 @@ Address-Information
         }
 
         $(document).ready(function() {
-          {% if 'Address' in instance_list %}
-            prepareCountryAutocomplete();
-          {% endif %}
           {% if 'Other' in instance_list %}
             prepareOtherAutocomplete();
           {% endif %}
@@ -124,19 +117,6 @@ Address-Information
             }
         }
 
-
-        /*
-        *  prepare value list for country autocompletion field
-        */
-        function prepareCountryAutocomplete() {
-            $("input#country_text").autocomplete( {
-                source: [
-                    {% for land in landlist %}
-                      "{{land}}",
-                    {% endfor %}
-                ]
-            });
-        }
 
         function prepareOtherAutocomplete() {
             // auto-complete for search box
@@ -163,24 +143,27 @@ Address-Information
         <input name="contact_ref" type="hidden" value="{{ contact_ref }}">
 
         <input class="button" type="submit" value="Save"/>
+        {% if instance_list|length == 1 and action == 'edit' %}
+            <input class="button" type="button" value="Delete" onClick="post_to_url('/attic', {'instance': '{{instance_list.0}}', 'key': '{{ Person_key }}{{ Mobile_key }}{{ Email_key }}{{ Web_key }}{{ Address_key }}{{ Other_key }}'});"/>
+        {% endif %}
         <input type="reset" value="Cancel" onClick="window.history.back()">
 
         <article id="contact_form">
           {% if 'Person' in instance_list %}
               <input name="Person_key" type="hidden" value="{{ Person_key }}">
-              <div class="">
-                <label for="firstname">First name(s)</label>
+              <div class="form-line">
+                <label for="firstname">First name(s):</label>
                 <input name="name" type="text" value="{{name}}">
-                <span>Nickname</span>
+              </div>
+              <div class="form-line">
+                <label for="nickname">Nickname:</label>
                 <input name="nickname" type="text" value="{{nickname}}">
               </div>
-              <div class="">
-                <label for="lastname">Last name</label>
+              <div class="form-line">
+                <label for="lastname">Last name:</label>
                 <input name="lastname" type="text" value="{{lastname}}">
               </div>
-              <div class="">
-                <label for="introduction">Introduce</label>
-                <input name="introduction" type="text" value="{{introduction}}">
+              <div class="form-line" style="margin-left: 130px;">
                 {% if middleman_ref %}
                     <input name="middleman_ref" type="hidden" value="{{middleman_ref}}">
                     <input name="middleman_name" type="hidden" value="{{middleman_name}}">
@@ -189,7 +172,14 @@ Address-Information
                     <span class="small">Please describe your relation to this person.</span>
                 {% endif %}
               </div>
-              <div class="">
+              <div class="form-line">
+                <label for="introduction">Introduce:</label>
+                <input name="introduction" type="text" value="{{introduction}}">
+              </div>
+              <div class="form-line" style="margin-left: 130px;">
+                <span class="small">You can leave the year out if you don't know it.</span>
+              </div>
+              <div class="form-line">
                 <label for="birthday">Birthday</label>
                 <select name="birthday" size="0" id="person_birthday">
                   {% for day in daylist %}
@@ -206,26 +196,25 @@ Address-Information
                     <option {% if birthyear == year %}selected{% endif %} value="{{year}}">{{year}}</option>
                   {% endfor %}
                 </select>
-                <span class="small">You can leave the year out if you don't know it.</span>
               </div>
           {% endif %} <!-- Person in instance_list -->
           {% if 'Email' in instance_list %}
               <hr>
-              <div class="">
+              <div class="form-line">
                 <input name="Email_key" type="hidden" value="{{ Email_key }}">
                 <label for="email">Email:</label>
                 <input name="email" type="email" value="{{email}}">
               </div>
           {% endif %}
           {% if 'Mobile' in instance_list %}
-              <div class="">
+              <div class="form-line">
                 <input name="Mobile_key" type="hidden" value="{{ Mobile_key }}">
                 <label for="mobile">Mobile phone:</label>
                 <input name="mobile" type="tel" value="{{mobile}}">
               </div>
           {% endif %}
           {% if 'Web' in instance_list %}
-              <div class="">
+              <div class="form-line">
                 <input name="Web_key" type="hidden" value="{{ Web_key }}">
                 <label for="web">Web site:</label>
                 <input id="web" name="web" type="text" value="{{web}}" placeholder="http://" onChange="httpStarter();" onMouseOut="httpStarter();" size="55">
@@ -234,42 +223,38 @@ Address-Information
           {% if 'Address' in instance_list %}
               <input name="Address_key" type="hidden" value="{{ Address_key }}">
               <hr>
-              <aside>
-                <a id="map_lookup_button" class="button" href="javascript:void(0)" onClick="getlatlon();">Show on map</a>
-              </aside>
-              <div class="">
+              <div class="form-line">
+                <a id="map_lookup_button" class="" href="javascript:void(0)" onClick="getlatlon();">Show on map</a>
                 <label for="adr">Address:</label>
                 <textarea id="adr_text" name="adr" rows="4" cols="40">{{adr}}</textarea>
               </div>
-              <div class="">
-                <label for="country">Country:</label>
-                <input id="country_text" type="text" name="country" value="{{country}}">
-              </div>
-              <div class="">
+              <div class="form-line">
                 <label for="landline_phone">Landline phone:</label>
                 <input type="text" name="landline_phone" value="{{landline_phone}}" size="20">
               </div>
-              <div class="">
+              <div class="form-line">
                 <label for="lat">Latitude:</label>
                 <input id="lat" type="text" name="lat" value="{{lat}}" size="5">
                 <label for="lon">Longitude:</label>
                 <input id='lon' type="text" name="lon" value="{{lon}}" size="5">
                 <input id='map_zoom' type="hidden" name="map_zoom" value="{{map_zoom}}">
                 <label for="location_loc">Lock:</label>
+              <div class="form-line">
                 <input id="location_lock" type="checkbox" name="location_lock" value="location_lock" {% if location_lock %} checked="checked" {% endif %}>
-                <span class="small"><em>Show on map</em> will not update coordinates.</span>
+                <span class="small">Don't change coordinate fields when map is updated.</span>
               </div>
-              <div>
+              <div class="form-line">
                   <input id='adr_zoom_input' type="hidden" name="adr_zoom" value="{{adr_zoom}}">
                   <small><span id="adr_zoom_div">{{adr_zoom}}</span></small>&nbsp;
               </div>
+              <div class="vertical-space"></div>
               <!-- displays map for address lookup -->
               <div id="map_canvas">
               </div>
               <div class="vertical-space"></div>
           {% endif %}
           {% if 'Other' in instance_list %}
-              <div class="">
+              <div class="form-line">
                 <input name="Other_key" type="hidden" value="{{ Other_key }}">
                 <label for="tag">Type:</label>
                 <input id="tag_autocompl" type="text" name="tag" value="{{tag}}">
@@ -280,7 +265,5 @@ Address-Information
         </article>
 
     </form>
-    <footer>
-      <div style="height: 32px; width: 672px;"></div>
-    </footer>
+  </div>
 {% endblock %}

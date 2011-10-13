@@ -48,6 +48,7 @@ class Take2Welcome(webapp.RequestHandler):
         self.response.out.write(template.render(path, template_values))
         return
 
+
 def initial_user_setup(auth_user, person):
     """Runs in a single transaction and sets up the LoginUser and its representation as a Person"""
 

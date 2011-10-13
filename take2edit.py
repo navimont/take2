@@ -211,6 +211,7 @@ class Edit(webapp.RequestHandler):
         template_values['instance_list'] = instance_list
         template_values['instance'] = instance
         template_values['contact_ref'] = contact_ref
+        template_values['action'] = 'edit'
 
         path = os.path.join(os.path.dirname(__file__), 'take2form.html')
         self.response.out.write(template.render(path, template_values))

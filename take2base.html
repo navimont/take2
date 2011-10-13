@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+		<meta charset="utf-8"/>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+    <meta name="description" content="Linked Address Book"/>
+    <!-- Opengraph.org tags -->
+    <meta property="og:title" content="Take2 - Linked Address Book" />
+    <meta property="og:type" content="non_profit" />
+    <meta property="og:url" content="http://adr.weschnitz.com/" />
+    <meta property="og:site_name" content="" />
+    <meta property="og:description" content=""/>
+    <!-- weschnitz browser tab icon -->
+    <!-- <link rel="shortcut icon" href=""> -->
+
+    <!-- Stylesheets -->
+		<link rel="stylesheet" media="all" href="/static/take2map.css"/>
+    <link rel="stylesheet" href="/static/leaflet/leaflet.css" />
+    <!--[if lte IE 8]><link rel="stylesheet" href="/static/leaflet/leaflet.ie.css" /><![endif]-->
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <!-- style sheet and sources for jquery -->
+    <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.min.js"></script>
+    <title>Weschnitz contacts map</title>
+  </head>
+
+  <body lang="en" id="full-map">
+    <!-- Leaflet JavaScript -->
+    <script src="/static/leaflet/leaflet.js"></script>
+    <script src="/static/take2map.js"></script>
+
+    <div id="map-siding">
+        <div id="loginout">
+            <h4><a href="{{loginout_url}}">{{loginout_text}}</a></h4>
+        </div>
+        {% if signed_in %}
+        <div id="login_user_place">
+            <h4>{{ login_user_place }}</h4>
+        </div>
+        <div id="side-menu" class="big">
+            <ul>
+                <li><a href="/new?instance=Person,Email,Mobile,Address">New contact</a></li>
+                <li></li>
+            </ul>
+        </div>
+        {% endif %}
+        <div id="weschnitz">
+            <h1>Weschnitz</h1>
+        </div>
+        <div id="weschnitz_subtitle">
+            Your online address book.
+        </div>
+        <div id="searchbox">
+            <input id="searchinput" type="text" name="query" value="{{ query|escape }}" autocomplete="off" placeholder="search a name"  onkeypress="send_on_return(event);">
+            <a href="javascript:void(0)" onClick="t2map_contact_req();"><img id="search-icon" src="/static/images/search.png"/></a>
+        </div>
+        <div id="results">
+        </div>
+        <div id="exclaimer">
+            <h4>This page is under development. Please forgive occasional dropouts and check frequently for new features!</h4>
+            <h4><strong>Note:</strong> marker positions are approximate only for anonymous users.</h4>
+        </div>
+    </div>
+    {% block content %} {% endblock %}
+    <script type="text/javascript">
+            window.onload=t2map_run;
+    </script>
+  </body>
+</html>
+

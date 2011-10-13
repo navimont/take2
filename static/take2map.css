@@ -58,19 +58,18 @@ a img {border: 0;}
 }
 
 body {
-	font: 17px/24px Palatino, Constantia, "Palatino Linotype", serif;
+	font: 17px/19px Palatino, Constantia, "Palatino Linotype", serif;
 }
 
 .small, small {
 	font-size: 12px;
-	line-height: 16px;
+	line-height: 13px;
 }
 
 .error {
   border: 2px solid red;
 	text-align: center;
-	margin: 0px;
-	text-shadow: 2px 2px 2px #fff;
+  width: 480px;
 }
 
 /* Selection colours (easy to forget) */
@@ -104,8 +103,9 @@ body {
     text-align: right;
 }
 
+
 #map-siding a:link, #map-siding a:hover, #map-siding a:visited {
-  color: #303030;
+  color: #0040FF;
   text-decoration: none;
 }
 
@@ -117,10 +117,18 @@ body {
     text-align: right;
 }
 
+#side-menu li {
+  padding-top: 10px;
+  list-style: none;
+  text-align: right;
+}
+
+
 #map-siding
 {
     float: left;
-    width: 230px;
+    width: 280px;
+    height: 100%;
     background-color: #CCCCCC;
     padding-top: 10px;
     padding-left: 10px;
@@ -135,6 +143,11 @@ body {
   padding-top: 20px;
 }
 
+#search-icon {
+  padding-left: 10px;
+  margin-bottom: -20px;
+}
+
 #searchbox input {
     width: 200px;
 }
@@ -143,6 +156,10 @@ body {
   padding-top: 20px;
   padding-bottom: 20px;
   height: 100%;
+}
+
+#new_contact {
+  padding-bottom: 20px;
 }
 
 .result_marker {
@@ -159,14 +176,154 @@ body {
   padding: 20px;
   background-color: #FFFF99;
   border: 1px solid #333333;
+  position: absolute;
+  width: 230px;
+  bottom: 33px;
 }
 
-#results a:link, #results a:hover, #results a:visited {
+/*
+ * content pages
+ */
+
+#content {
+    padding-top: 5px;
+    margin-left: 330px;
+}
+
+.error {
+  padding 10px;
+}
+
+article {
+  margin-top: 12px;
+  padding-left: 10px;
+}
+
+.contact_privacy {
+  float: left;
+  text-align: right;
+	width: 86px;
+	margin-left: -110px;
+}
+
+.contact_privacy:hover {
+  cursor: pointer;
+}
+
+.privacy_public {
+  background-color: #30C090;
+  padding: 0px 10px 5px 10px;
+}
+
+.privacy_private {
+  background-color: #C04830;
+  padding: 0px 10px 5px 10px;
+}
+
+.privacy_restricted {
+  background-color: #FFFF66;
+  padding: 0px 10px 5px 10px;
+}
+
+a:link, a:hover, a:visited {
+  color: #303030;
+  text-decoration: underline;
+}
+
+a:hover {
+  cursor: pointer;
+}
+
+/* all links in the article section */
+article a:link, article a:hover, article a:visited {
+  color: #0040FF;
+  text-decoration: none;
+}
+
+.take2_header a:link, .take2_header  a:hover, .take2_header  a:visited {
+  color: #E5ECFF;
+  text-decoration: none;
+}
+
+/* except the contact links in search results */
+#contact_link {
+  color: #303030;
   text-decoration: underline;
 }
 
 
-footer {
-  position: absolute;
-  bottom: 33px;
+/* form fields */
+#contact_form label {
+  /* width works only together with float */
+  width: 130px;
+  float: left;
 }
+
+#map_canvas {
+    height: 320px;
+    width: 480px;
+    border: 1px solid black;
+}
+
+
+hr, .take2_header {
+  width: 480px;
+  padding: 5px;
+  background-color: #668CFF;
+  margin-bottom: 7px;
+  margin-top: 7px;
+}
+
+#map_lookup_button {
+  float: right;
+  background-color: #668CFF;
+  color: #E5ECFF;
+  padding: 7px;
+}
+
+#contact_form .button {
+  float: right;
+  padding: 7px;
+}
+
+.take2_header_icon {
+  width: 24px;
+  height: 24px;
+  float: right;
+  margin-top: -25px;
+  padding-right: 10px;
+}
+
+.input_text {
+    width: 300px;
+}
+
+.form-line {
+  padding-top: 5px;
+  width: 480px;
+}
+
+.click_icon {
+    width: 30px;
+    height: 30px;
+}
+
+.vertical-space {
+  height: 10px;
+}
+
+#signup {
+  list-style-position: inside;
+}
+
+#birthdays {
+  padding: 10px;
+}
+
+#birthdays li, #contact li {
+  list-style: none;
+  padding-left: 10px;
+  padding-bottom: 10px;
+}
+
+

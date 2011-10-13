@@ -12,17 +12,9 @@ from django.core.validators import validate_email, URLValidator
 from django.core.exceptions import ValidationError
 from google.appengine.ext import db
 from take2dbm import Contact, Person, Take2, FuzzyDate
-from take2dbm import Email, Address, Mobile, Web, Other, Country, OtherTag
+from take2dbm import Email, Address, Mobile, Web, Other, OtherTag
 from take2index import update_index
 
-
-def prepare_list_of_countries():
-    """prepares a list of countries in a
-    datastructure ready for the template use"""
-    landlist = []
-    for lc in Country.all():
-        landlist.append(lc.country)
-    return landlist
 
 def prepare_list_of_other_tags():
     """prepares a list of previously used tags in a  data structure ready for the template use"""
@@ -84,7 +76,8 @@ class PersonBean(ContactBean):
         person.lastname = entity.lastname
         person.birthday = entity.birthday
         person.introduction = entity.introduction
-        person.middleman_ref = entity.middleman_ref
+        if entity.middleman_ref:
+            person.middleman_ref = str(entity.middleman_ref.key())
         return person
 
     @classmethod
@@ -149,7 +142,7 @@ class PersonBean(ContactBean):
         if self.middleman_ref:
             self.template_values['middleman_ref'] = self.middleman_ref
             # look him up to fill the fields
-            middleman = Person.get(self.middleman_ref)
+            middleman = Person.get(db.Key(self.middleman_ref))
             if middleman:
                 self.template_values['middleman_name'] = middleman.name
                 self.template_values['middleman_lastname'] = middleman.lastname
@@ -164,7 +157,7 @@ class PersonBean(ContactBean):
 
     def put(self):
         if self.middleman_ref:
-            middleman = Person.get(self.middleman_ref)
+            middleman = db.Key(self.middleman_ref)
         else:
             middleman = None
         try:
@@ -410,8 +403,6 @@ class AddressBean(Take2Bean):
         address.entity = entity
         # properties follow
         address.adr = entity.adr
-        if entity.country:
-            address.country = entity.country.country
         address.landline_phone = entity.landline_phone
         address.location_lock = entity.location_lock
         address.lon = entity.location.lon
@@ -429,7 +420,6 @@ class AddressBean(Take2Bean):
             address = AddressBean(contact_ref)
         # properties follow
         address.adr = request.get('adr', "").split("\n")
-        address.country = request.get('country', "")
         address.landline_phone = request.get('landline_phone', "")
         address.location_lock = True if request.get('location_lock', None) else False
         lat_raw = request.get("lat", "")
@@ -444,7 +434,6 @@ class AddressBean(Take2Bean):
         super(AddressBean,self).__init__(contact_ref)
         # properties follow
         self.adr = []
-        self.country = ""
         self.landline_phone = ""
         self.location_lock = False
         self.lon = 0.0
@@ -454,7 +443,6 @@ class AddressBean(Take2Bean):
 
     def validate(self):
         adr = "".join(self.adr)
-        adr = adr+self.country
         if len(adr) < 3 and self.lat == 0.0 and self.lon == 0.0:
             return ['Please enter an address']
 
@@ -462,7 +450,6 @@ class AddressBean(Take2Bean):
         super(AddressBean,self).get_template_values()
         # properties follow
         self.template_values['adr'] = "\n".join(self.adr)
-        self.template_values['country'] = self.country
         self.template_values['landline_phone'] = self.landline_phone
         self.template_values['lat'] = self.lat
         self.template_values['lon'] = self.lon
@@ -470,21 +457,11 @@ class AddressBean(Take2Bean):
         self.template_values['map_zoom'] = str(self.map_zoom)
         if self.adr_zoom:
             self.template_values['adr_zoom'] = ", ".join(self.adr_zoom)
-        self.template_values['landlist'] = prepare_list_of_countries()
         return self.template_values
 
     def put(self):
-        if len(self.country) > 0:
-            country = Country.all().filter("country =", self.country).get()
-            # If country name is not in DB it is added
-            if not country:
-                country = Country(country=self.country)
-                country.put()
-        else:
-            country = None
         try:
             self.entity.adr = self.adr
-            self.entity.country = country
             self.entity.landline_phone = self.landline_phone
             self.entity.location = location=db.GeoPt(lon=self.lon, lat=self.lat)
             self.entity.location_lock = self.location_lock
@@ -494,7 +471,7 @@ class AddressBean(Take2Bean):
         except AttributeError:
             # prepare database object for new person
             self.entity = Address(contact_ref=self.contact_ref, adr=self.adr,
-                                  country=country, landline_phone=self.landline_phone,
+                                  landline_phone=self.landline_phone,
                                   location=db.GeoPt(lon=self.lon, lat=self.lat), location_lock=self.location_lock,
                                   map_zoom=self.map_zoom, adr_zoom=self.adr_zoom)
             self.entity.put()

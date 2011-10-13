@@ -247,7 +247,7 @@ def geocode_contact(contact, login_user, include_attic=False, include_privacy=Fa
             # make position worse if user is not logged in or does not have access rights
             random.seed(contact.key().id_or_name())
             if login_user:
-                if login_user.me.key() == contact.key():
+                if login_user.key() == contact.owned_by.key():
                     mlat = 0.0
                     mlon = 0.0
                 else:
@@ -261,7 +261,8 @@ def geocode_contact(contact, login_user, include_attic=False, include_privacy=Fa
             feature['geometry'] = {"type": "Point", "coordinates": [geo.location.lon+mlon,geo.location.lat+mlat]}
             properties = {}
             properties['name'] = contact.name
-            properties['key'] = str(contact.key())
+            if login_user and login_user.key() == contact.owned_by.key():
+                properties['key'] = str(contact.key())
             if login_user and contact.class_name() == 'Person':
                 properties['lastname'] = contact.lastname
             else:
@@ -269,31 +270,36 @@ def geocode_contact(contact, login_user, include_attic=False, include_privacy=Fa
             # For Addresses add place information
             if geo.data_ref.key().kind() == 'Take2' and geo.data_ref.class_name() == 'Address':
                 properties['place'] = ", ".join(geo.data_ref.adr_zoom[:2])
+                properties["zoom"] = geo.data_ref.map_zoom
             else:
                 properties['place'] = "(last known standpoint)"
-            properties['style'] = {   'color': "#004070",
-                                      'weight': 4,
-                                      'opacity': 0.9
-                                  }
-            properties["popupContent"] = contact.name
+                properties["zoom"] = 11
+            if login_user and login_user.key() == contact.owned_by.key():
+                properties["popupContent"] = "<p><strong><a href=\"/editcontact?key=%s\">%s %s</a></strong></p><p>%s</p>" % (properties['key'],properties['name'],properties['lastname'],properties['place'])
+            else:
+                properties["popupContent"] = "<p><strong>%s %s</strong></p><p>%s</p>" % (properties['name'],properties['lastname'],properties['place'])
             feature['properties'] = properties
+            feature['id'] = 'display'
             features.append(feature)
 
     if not features:
         # no geodata available for this contact. Encode it simply without
-            feature = {}
-            feature['type'] = "Feature"
-            properties = {}
-            properties['name'] = contact.name
+        feature = {}
+        feature['type'] = "Feature"
+        properties = {}
+        properties['name'] = contact.name
+        if login_user and login_user.key() == contact.owned_by.key():
             properties['key'] = str(contact.key())
-            properties['place'] = ""
-            # this will be filtered out on the client side
-            feature['geometry'] = {"type": "Point", "coordinates": [0.0,0.0]}
-            if login_user and contact.class_name() == 'Person':
-                properties['lastname'] = contact.lastname
-            else:
-                properties['lastname'] = ""
-            feature['properties'] = properties
-            features.append(feature)
+        if login_user and contact.class_name() == 'Person':
+            properties['lastname'] = contact.lastname
+        else:
+            properties['lastname'] = ""
+        properties['place'] = ""
+        # this will be filtered out on the client side
+        feature['geometry'] = {"type": "Point", "coordinates": [0.0,0.0]}
+        properties["popupContent"] = "<p><strong>%s %s</strong></p>" % (properties['name'],properties['lastname'])
+        feature['properties'] = properties
+        feature['id'] = 'hide'
+        features.append(feature)
 
     return features
