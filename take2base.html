@@ -28,8 +28,13 @@
     <!-- Leaflet JavaScript -->
     <script src="/static/leaflet/leaflet.js"></script>
     <script src="/static/take2map.js"></script>
+    <script src="/static/take2geolocate.js"></script>
 
     <div id="map-siding">
+        <input id="login_user_lat" type="hidden" value="{{login_user_lat}}">
+        <input id="login_user_lon" type="hidden" value="{{login_user_lon}}">
+        <input id="geolocation_request" type="hidden" value="{{geolocation_request}}">
+        <input id="login_user_key" type="hidden" value="{{login_user_key}}">
         <div id="loginout">
             <h4><a href="{{loginout_url}}">{{loginout_text}}</a></h4>
         </div>
@@ -45,7 +50,7 @@
         </div>
         {% endif %}
         <div id="weschnitz">
-            <h1>Weschnitz</h1>
+            <h1><a href="/">Weschnitz</a></h1>
         </div>
         <div id="weschnitz_subtitle">
             Your online address book.
@@ -57,13 +62,37 @@
         <div id="results">
         </div>
         <div id="exclaimer">
-            <h4>This page is under development. Please forgive occasional dropouts and check frequently for new features!</h4>
-            <h4><strong>Note:</strong> marker positions are approximate only for anonymous users.</h4>
+          <header>
+            {% if birthdays %}
+              <h4>Birthdays</h4>
+              <ul id="birthdays">
+                {% for person in birthdays %}
+                  <li class='big'>{{ person.name }} {% if person.nickname %} ({{ person.nickname }}) {% endif %} *{{ person.birthday }}
+                {% endfor %}
+              </ul>
+            {% else %}
+              <h4>(no upcoming birthdays)</h4>
+            {% endif %}
+          </header>
+          {% if new_customer %}
+              <div id="new_customer">
+                  Start entering your data:
+                  <a class="button" href="javascript:void(0)" onClick="post_to_url('/edit', {'instance': 'Person,Mobile,Address', 'Person_key': '{{new_customer_key}}', 'contact_ref': '{{new_customer_key}}'})">
+                  Click here</a>
+              </div>
+          {% endif %}
         </div>
     </div>
     {% block content %} {% endblock %}
     <script type="text/javascript">
-            window.onload=t2map_run;
+            function onload_scripts() {
+                // ask user for current position and find out location
+                t2_geolocator_run();
+                // display map
+                t2map_run();
+            }
+
+            window.onload=onload_scripts;
     </script>
   </body>
 </html>

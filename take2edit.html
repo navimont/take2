@@ -2,94 +2,112 @@
 
 {% block content %}
   <div id="content">
-    <script type="text/javascript">
-        $(document).ready(function() {
+    <div id="center-content">
+      <script type="text/javascript">
+          $(document).ready(function() {
 
-          // make attic entries disappear
-          $('div.take2_data_attic').hide();
-          // click handler
-          $('div.take2_section .take2_header_toggle').click(function(){
-              var section = $(this).parents('div.take2_section');
-              $("div.take2_data_attic", section).toggle()
+            // make attic entries disappear
+            $('div.take2_data_attic').hide();
+            // click handler
+            $('div.take2_section .take2_header_toggle').click(function(){
+                var section = $(this).parents('div.take2_section');
+                $("div.take2_data_attic", section).toggle()
+            });
           });
-        });
-    </script>
+      </script>
 
-    {% for error in errors %}
-        <div class="error">{{ error }}</div>
-    {% endfor %}
-
-    <header>
-      <h1>Manage contact details</h1>
-    </header>
-
-
-    <article id="contact">
-      <header>
-        <h2>
-           <!-- edit the contact itself (Person, Company)-->
-          <a href="javascript:void(0)" onClick="post_to_url('/edit', {'instance': '{{contact.class_name}}', '{{contact.class_name}}_key': '{{contact.key}}', 'contact_ref': '{{contact.key}}'});">
-            {{ contact.name }}
-            {% if contact.nickname %}
-                ({{contact.nickname}})
-            {% endif %}
-            {{contact.lastname}}
-            {% if contact.birthday %}
-                &nbsp;*{{contact.birthday}} {{contact.birthmonth}}
-            {% endif %}
-          </a>
-        </h2>
-        <h3>
-          {{contact.relation}}
-          {% if contact.middleman_ref %}
-            <!-- Link to the edit main page for the referenced contact -->
-            (related through <a href="/editcontact?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
-          {% endif %}
-        </h3>
-      </header>
-      <div class="vertical-space"></div>
-      <!-- properties for this contact -->
-      {% for take2 in contact.take2 %}
-        <div class="take2_section">
-          <div class="take2_header">
-              <div>
-                <h3>
-                    <!-- A new instance of a take2 class -->
-                    <a  href="javascript:void(0)" onClick="post_to_url('/new', {'instance': '{{take2.class_name}}', 'contact_ref': '{{contact.key}}' });">
-                    Add {{take2.header}}</a>
-                </h3>
-              </div>
-              {% if take2.has_attic %}
-                <!-- toggle the visibility of deleted entries -->
-                <a class="take2_header_toggle" href="javascript:void(0)" title="show/hide deleted items">
-                    <img class="take2_header_icon" src="/static/icon-undelete.png" alt="show/hide deleted items">
-                </a>
-              {% endif %}
-          </div> <!-- take2_header -->
-          <ul>
-            {% for data in take2.data %}
-              {% if data.attic %}
-                <div class="take2_data_attic">
-              {% else %}
-                <div class="take2_data">
-              {% endif %}
-                <li>
-                  {% if data.class_name == 'Person' %}
-                    <!-- The contacts of the contact on display. Go to this persons main edit page, not directly into the form -->
-                    <a href="javascript:void(0)" onClick="post_to_url('/editcontact', {'key': '{{data.key}}' });">
-                      {{data.data}}
-                  {% else %}
-                    <!-- Edit a take2 property -->
-                    <a href="javascript:void(0)" title="edit this {{take2.header}}" onClick="post_to_url('/edit', {'instance': '{{data.class_name}}', 'contact_ref': '{{contact.key}}', '{{data.class_name}}_key': '{{data.key}}' });">
-                      {{data.data}}
-                  {% endif %}
-                  </a>
-                </li>
-              </div>
-            {% endfor %}
-          </ul>
-        </div> <!-- take2_section -->
+      {% for error in errors %}
+          <div class="error">{{ error }}</div>
       {% endfor %}
-    </article>
+
+      <header>
+        <h1>Manage contact details</h1>
+      </header>
+
+
+      <article id="contact">
+        <header>
+          {% if contact.attic %}
+              <div class="undelete_button">
+                  <a href="/deattic?key={{contact.key}}">undelete</a>
+              </div>
+          {% endif %}
+          <h2>
+             <!-- edit the contact itself (Person, Company)-->
+            <a href="/edit?instance={{contact.class_name}}&{{contact.class_name}}_key={{contact.key}}&contact_ref={{contact.key}}">
+              {{ contact.name }}
+              {% if contact.nickname %}
+                  ({{contact.nickname}})
+              {% endif %}
+              {{contact.lastname}}
+              {% if contact.birthday %}
+                  &nbsp;*{{contact.birthday}} {{contact.birthmonth}}
+              {% endif %}
+            </a>
+          </h2>
+          <h3>
+            {{contact.relation}}
+            {% if contact.middleman_ref %}
+              <!-- Link to the edit main page for the referenced contact -->
+              (related through <a href="/editcontact?key={{contact.middleman_ref}}">{{contact.middleman}}</a>)
+            {% endif %}
+          </h3>
+        </header>
+        <div class="vertical-space"></div>
+        <!-- properties for this contact -->
+        {% for take2 in contact.take2 %}
+          <div class="take2_section">
+            <div class="take2_header">
+                <div>
+                  <h3>
+                      <!-- A new instance of a take2 class -->
+                      <a  href="javascript:void(0)" onClick="post_to_url('/new', {'instance': '{{take2.class_name}}', 'contact_ref': '{{contact.key}}' });">
+                      Add {{take2.header}}</a>
+                  </h3>
+                </div>
+                {% if take2.has_attic %}
+                  <!-- toggle the visibility of deleted entries -->
+                  <a class="take2_header_toggle" href="javascript:void(0)" title="show/hide deleted items">
+                      <img class="take2_header_icon" src="/static/images/icon-undelete.png" alt="show/hide deleted items">
+                  </a>
+                {% endif %}
+            </div> <!-- take2_header -->
+            <ul>
+              {% for data in take2.data %}
+                {% if data.attic %}
+                  <div class="take2_data_attic">
+                    <div class="undelete_button">
+                      <a href="/deattic?instance={{data.class_name}}&key={{data.key}}">undelete</a>
+                    </div>
+                    <li>
+                      {% if data.class_name == 'Person' %}
+                        {{data.data}}
+                      {% else %}
+                          {{data.data}}
+                      {% endif %}
+                    </li>
+                  </div>
+                {% else %}
+                  <div class="take2_data">
+                    <li>
+                      {% if data.class_name == 'Person' %}
+                        <!-- The contacts of the contact on display. Go to this persons main edit page, not directly into the form -->
+                        <a href="/editcontact?key={{data.key}}">
+                        {{data.data}}
+                      {% else %}
+                        <!-- Edit a take2 property -->
+                        <a title="edit this {{take2.header}}" href="/edit?instance={{data.class_name}}&contact_ref={{contact.key}}&{{data.class_name}}_key={{data.key}}">
+                          {{data.data}}
+                      {% endif %}
+                      </a>
+                    </li>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </ul>
+          </div> <!-- take2_section -->
+        {% endfor %}
+      </article>
+    </div>
   </div>
 {% endblock %}

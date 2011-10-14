@@ -81,7 +81,7 @@ class Take2Signup(webapp.RequestHandler):
 
         # already connected
         if login_user and login_user.me:
-            self.redirect('/search')
+            self.redirect('/')
             return
 
         template_values['errors'] = []
@@ -112,7 +112,7 @@ class Take2Signup(webapp.RequestHandler):
         # because the index table is not in the entity group
         update_index(person.entity)
 
-        self.redirect('/search')
+        self.redirect('/')
 
 class OpenIdLogin(webapp.RequestHandler):
     """creates the openid login url and redirects the browser"""

@@ -278,6 +278,10 @@ class LookupNames(webapp.RequestHandler):
         """
         term = self.request.get('term',"")
         queries = plainify(term)
+        if not queries:
+            self.response.headers['Content-Type'] = "text/plain"
+            self.response.out.write(json.dumps([]))
+            return
 
         # if the query string is more than one term, lookup only the last
         res0 = " ".join(queries[0:-1])

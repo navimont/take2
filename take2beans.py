@@ -11,6 +11,7 @@ from datetime import datetime
 from django.core.validators import validate_email, URLValidator
 from django.core.exceptions import ValidationError
 from google.appengine.ext import db
+from google.appengine.api import memcache
 from take2dbm import Contact, Person, Take2, FuzzyDate
 from take2dbm import Email, Address, Mobile, Web, Other, OtherTag
 from take2index import update_index
@@ -180,6 +181,9 @@ class PersonBean(ContactBean):
         if not self.parent:
             # generate search keys for contact; cannot run in transaction context
             update_index(self.entity)
+        # delete birthday memcache
+        memcache.delete('birthdays',namespace=str(self.entity.owned_by.key()))
+
 
 
 class Take2Bean(EntityBean):
@@ -359,6 +363,7 @@ class OtherBean(Take2Bean):
 
     def __init__(self,contact_ref):
         super(OtherBean,self).__init__(contact_ref)
+        self.contact_ref = contact_ref
         self.text = ""
         self.tag = ""
 
@@ -374,10 +379,10 @@ class OtherBean(Take2Bean):
 
     def put(self):
         if len(self.tag) > 0:
-            tag = OtherTag.all().filter("tag =", self.tag).get()
+            tag = OtherTag.all().filter("tag =", self.tag).filter("owned_by =", self.contact_ref.owned_by).get()
             # If tag name is not in DB it is added
             if not tag:
-                tag = OtherTag(tag=self.tag)
+                tag = OtherTag(tag=self.tag, owned_by=self.contact_ref.owned_by)
                 tag.put()
         else:
             tag = None

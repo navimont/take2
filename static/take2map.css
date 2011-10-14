@@ -187,7 +187,15 @@ body {
 
 #content {
     padding-top: 5px;
-    margin-left: 330px;
+    margin-left: 130px;
+}
+
+#center-content {
+    display: block;
+    width: 500px;
+    padding-left: 30px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .error {
@@ -240,7 +248,8 @@ article a:link, article a:hover, article a:visited {
   text-decoration: none;
 }
 
-.take2_header a:link, .take2_header  a:hover, .take2_header  a:visited {
+.take2_header a:link, .take2_header  a:hover, .take2_header  a:visited,
+.undelete_button a:link, .undelete_button  a:hover, .undelete_button  a:visited {
   color: #E5ECFF;
   text-decoration: none;
 }
@@ -274,6 +283,13 @@ hr, .take2_header {
   margin-top: 7px;
 }
 
+.undelete_button {
+  float: right;
+  background-color: #668CFF;
+  color: #E5ECFF;
+  padding: 2px;
+}
+
 #map_lookup_button {
   float: right;
   background-color: #668CFF;
@@ -294,8 +310,16 @@ hr, .take2_header {
   padding-right: 10px;
 }
 
-.input_text {
-    width: 300px;
+.input_sentence {
+    width: 330px;
+}
+
+.input_name {
+    width: 160px;
+}
+
+.input_coordinate {
+    width: 72px;
 }
 
 .form-line {
@@ -325,5 +349,3 @@ hr, .take2_header {
   padding-left: 10px;
   padding-bottom: 10px;
 }
-
-

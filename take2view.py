@@ -72,7 +72,7 @@ class OtherView(Take2View):
         self.text = obj.text
         if obj.tag:
             self.tag = obj.tag.tag
-            self.data = "%s %s" % (obj.tag.tag, obj.text)
+            self.data = u"%s \u00B7 %s" % (obj.tag.tag, obj.text)
         else:
             self.data = self.text
 
@@ -84,9 +84,8 @@ class AddressView(Take2View):
             self.location_lon = obj.location.lon
         self.adr = obj.adr
         self.landline_phone = obj.landline_phone if obj.landline_phone else ""
-        self.country = obj.country.country if obj.country else ""
         self.adr_zoom = obj.adr_zoom if obj.adr_zoom else ""
-        self.data = "%s %s" % (", ".join(self.adr),self.country)
+        self.data = u"\u00B7 ".join(self.adr)
 
 class ContactView():
     def __init__(self,contact):
@@ -277,7 +276,7 @@ def geocode_contact(contact, login_user, include_attic=False, include_privacy=Fa
             if login_user and login_user.key() == contact.owned_by.key():
                 properties["popupContent"] = "<p><strong><a href=\"/editcontact?key=%s\">%s %s</a></strong></p><p>%s</p>" % (properties['key'],properties['name'],properties['lastname'],properties['place'])
             else:
-                properties["popupContent"] = "<p><strong>%s %s</strong></p><p>%s</p>" % (properties['name'],properties['lastname'],properties['place'])
+                properties["popupContent"] = "<p><strong>%s %s</strong></p><p><em>This user does not share contact information.</em></p><p>%s</p>" % (properties['name'],properties['lastname'],properties['place'])
             feature['properties'] = properties
             feature['id'] = 'display'
             features.append(feature)
@@ -297,7 +296,7 @@ def geocode_contact(contact, login_user, include_attic=False, include_privacy=Fa
         properties['place'] = ""
         # this will be filtered out on the client side
         feature['geometry'] = {"type": "Point", "coordinates": [0.0,0.0]}
-        properties["popupContent"] = "<p><strong>%s %s</strong></p>" % (properties['name'],properties['lastname'])
+        properties["popupContent"] = "<p><strong>%s %s</strong></p><p><em>This user does not share contact information.</em></p>" % (properties['name'],properties['lastname'])
         feature['properties'] = properties
         feature['id'] = 'hide'
         features.append(feature)

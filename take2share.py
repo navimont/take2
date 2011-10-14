@@ -66,7 +66,7 @@ class Take2ShareSave(webapp.RequestHandler):
                     self.error(500)
                     return
 
-        self.redirect("/search?key=%s" % str(login_user.me.key()))
+        self.redirect("/editcontact?key=%s" % str(login_user.me.key()))
 
 
 application = webapp.WSGIApplication([('/share', Take2Share),

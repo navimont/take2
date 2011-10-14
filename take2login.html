@@ -25,39 +25,42 @@
     </script>
 
     <!-- Stylesheets -->
-		<link rel="stylesheet" media="all" href="/static/take2.css"/>
+		<link rel="stylesheet" media="all" href="/static/take2map.css"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>{% block pagetitle %}{% endblock %}</title>
+    <title>Weschnitz login</title>
   </head>
 
-  <body lang="en">
-    <header id="masthead">
-      <a class="gigantic" href="/">Weschnitz</a>
-      <p class="bigger">Simply an online address book.</p>
-    </header>
-    <div id='page_content'>
-      <div>
-        <p></p>
-        <form action="/openid_login" method="get" id="openid_form">
-         <input type="hidden" name="action" value="verify" />
+  <body lang="en" id="full-map">
+    <div id="map-siding">
+        <div id="weschnitz">
+            <h1>Weschnitz</h1>
+        </div>
+        <div id="weschnitz_subtitle">
+            Your online address book.
+        </div>
+        <div style="margin-top: 50px; margin-bottom: auto;">
+          <form action="/openid_login" method="get" id="openid_form">
+           <input type="hidden" name="action" value="verify" />
 
-         <fieldset>
-          <div id="openid_choice">
+           <fieldset>
+            <div id="openid_choice">
+             <div id="openid_btns"></div>
+            </div>
+            <div id="openid_input_area" >
+             <input id="openid_identifier" name="openid_identifier" type="text" value="http://" />
+             <input id="openid_submit" type="submit" value="Sign-In"/>
+
+            </div>
+            <noscript>
+             <p>OpenID is service that allows you to log-on to many different websites using a single indentity.
+             Find out <a href="http://openid.net/what/">more about OpenID</a> and <a href="http://openid.net/get/">how to get an OpenID enabled account</a>.</p>
+            </noscript>
+           </fieldset>
+          </form>
+        </div>
+        <div id="exclaimer">
            <p>Please click your account provider:</p>
-           <div id="openid_btns"></div>
-          </div>
-          <div id="openid_input_area">
-           <input id="openid_identifier" name="openid_identifier" type="text" value="http://" />
-           <input id="openid_submit" type="submit" value="Sign-In"/>
-
-          </div>
-          <noscript>
-           <p>OpenID is service that allows you to log-on to many different websites using a single indentity.
-           Find out <a href="http://openid.net/what/">more about OpenID</a> and <a href="http://openid.net/get/">how to get an OpenID enabled account</a>.</p>
-          </noscript>
-         </fieldset>
-        </form>
-      </div>
+        </div>
     </div>
   </body>
 </html>

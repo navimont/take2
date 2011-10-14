@@ -24,6 +24,12 @@ from take2access import get_login_user, get_current_user_template_values
 from take2index import lookup_contacts
 from take2view import geocode_contact
 
+class Root(webapp.RequestHandler):
+    """Redirect to start page"""
+
+    def get(self):
+        self.redirect('/map')
+
 
 class Map(webapp.RequestHandler):
     """"""
@@ -52,10 +58,6 @@ class MapPopulate(webapp.RequestHandler):
 
         box = geo.geotypes.Box(maxlat,maxlon,minlat,minlon)
         for geoix in GeoIndex.bounding_box_fetch(GeoIndex.all(), box, max_results=111):
-            if not geoix.contact_ref:
-                # may happen if index is not up to date
-                logging.warning("Query returned invalid contact reference")
-                continue
             try:
                 con = geocode_contact(geoix.contact_ref, include_attic=False, login_user=login_user)
                 if con:
@@ -148,6 +150,7 @@ class MapData(webapp.RequestHandler):
 
 
 application = webapp.WSGIApplication([('/map', Map),
+                                      ('/', Root),
                                       ('/mapdata', MapData),
                                       ('/mappopulate', MapPopulate),
                                       ],settings.DEBUG)

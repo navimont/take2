@@ -11,11 +11,12 @@ handlers:
   static_files: static/images/favicon.ico
   upload: static/images/favicon\.ico
 
+- url: /robots\.txt
+  static_files: static/robots.txt
+  upload: static/robots.txt
+
 - url: /(export.*|import.*)
   script: take2export.py
-
-- url: (/|/search.*)
-  script: take2search.py
 
 - url: (/login|/_ah/login_required|/welcome|/openid_login|/signup)
   script: take2login.py
@@ -35,5 +36,5 @@ handlers:
   script: take2share.py
   login: required
 
-- url: /map.*
+- url: (/map.*|/)
   script: take2map.py

@@ -197,6 +197,8 @@ class OtherTag(db.Model):
     """Describes the content of the other text field"""
     # description
     tag = db.StringProperty()
+    # tags are private to users
+    owned_by = db.ReferenceProperty(LoginUser)
 
 class Other(Take2):
     """Any other information"""
